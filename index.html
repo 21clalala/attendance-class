@@ -36,7 +36,7 @@ th{background:var(--head);font-weight:600;color:var(--mute);font-size:13px;paddi
 td{height:44px}
 td.no{width:48px;color:var(--mute)}
 td.nm{text-align:left;padding-left:10px;font-weight:600;min-width:84px}
-td.slot{width:58px;font-size:18px;color:var(--ink)}
+td.slot{width:140px;font-size:20px;color:var(--ink)}
 th.cur{background:var(--accent);color:#fff}
 td.cur{background:var(--accent-soft);font-weight:800}
 td.cur.lock{background:var(--lock);color:var(--mute)}
@@ -137,7 +137,9 @@ function render(){
 
   const neis = new Set(S.neis.map(x => x.no + ":" + x.slot));
   const marks = new Set(S.marks.map(x => x.no + ":" + x.period));
-  const slots = ["조회", ...sch.map(x => String(x.period)), "종례"];
+  // 현재 교시 칸만 표시 (수업 시간이 아니면 출석부를 숨김)
+  document.querySelector(".tablebox").classList.toggle("hidden", !cur);
+  const slots = cur ? [String(cur)] : [];
   const head = slots.map(s => `<th class="${s===String(cur)?"cur":""}">${/^\d+$/.test(s)? s+"교시" : s}</th>`).join("");
   let html = `<thead><tr><th>번호</th><th>성명</th>${head}</tr></thead><tbody>`;
   for(const st of S.students){
