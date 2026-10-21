@@ -171,7 +171,7 @@ tr.ex td{color:var(--mute);background:var(--lock)}
     </div>
     <div class="card">
       <h2 style="margin-top:0">학생 명단</h2>
-      <p class="mute" style="margin-top:0">한 줄에 "번호 이름". 위탁 학생은 이름 뒤에 (위탁)을 붙이면 입력·알림에서 제외됩니다. 목록에서 지운 번호는 명단에서 삭제됩니다.</p>
+      <p class="mute" style="margin-top:0">한 줄에 "번호 이름". 이름 뒤에 (자습반)처럼 괄호로 적으면 교과선생님 화면에 그 표시가 뜹니다. (위탁)은 입력·알림에서 제외됩니다. 목록에서 지운 번호는 명단에서 삭제됩니다.</p>
       <textarea id="roster" style="width:100%;min-height:260px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)"></textarea>
       <div class="row" style="margin-top:8px"><button class="btn" id="rosterSave">명단 저장</button><span id="rosterMsg"></span></div>
     </div>
@@ -182,11 +182,11 @@ tr.ex td{color:var(--mute);background:var(--lock)}
   </section>
 </div>
 
-<script src="config.js?v=4"></script>
+<script src="config.js?v=5"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=4"></script>
+<script src="neis-parse.js?v=5"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -270,7 +270,7 @@ async function loadBoard(){
     }).join("")}<th>비고</th></tr></thead><tbody>`;
     for(const s of students){
       const nd_ = D.get(s.no) || {};
-      h += `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}</td><td>${esc(nd_.kind)}</td>`;
+      h += `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}${s.tag ? ` <span class="mute">${esc(s.tag)}</span>` : ""}</td><td>${esc(nd_.kind)}</td>`;
       for(const sl of slots){
         const n = N.has(s.no + ":" + sl), t = /^\d+$/.test(sl) ? T.get(s.no + ":" + sl) : null;
         const tip = t ? `${esc(t.teacher)} ${new Date(t.created_at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}` : "";
@@ -470,7 +470,7 @@ function loadSettings(){
 async function loadRoster(){
   try{
     const st = must(await sb.from("students").select("*").order("no"));
-    $("roster").value = st.map(s => `${s.no} ${s.name}`).join("\n");
+    $("roster").value = st.map(s => `${s.no} ${s.name}${s.tag ? ` (${s.tag})` : ""}`).join("\n");
     say("rosterMsg", st.length ? `${st.length}명` : "명단이 비어 있습니다.", "mute");
   }catch(e){ say("rosterMsg", "불러오기 실패: " + e.message, "err"); }
 }
@@ -480,9 +480,12 @@ $("rosterSave").onclick = async () => {
     const t = line.trim(); if(!t) continue;
     const m = t.match(/^(\d+)[\s.,)\-]+(.+)$/);
     if(!m){ say("rosterMsg", `형식 오류: "${t}"`, "err"); return; }
-    const no = +m[1], name = m[2].trim();
+    const no = +m[1];
+    let name = m[2].trim(), tag = null;
+    const tm = name.match(/\s*\((?!\s*위탁\s*\))([^()]+)\)\s*$/);   // (위탁) 외의 괄호 = 표시
+    if(tm){ tag = tm[1].trim(); name = name.slice(0, tm.index).trim(); }
     if(seen.has(no)){ say("rosterMsg", `${no}번이 두 번 있습니다.`, "err"); return; }
-    seen.add(no); list.push({no, name, excluded: /\(\s*위탁\s*\)/.test(name)});
+    seen.add(no); list.push({no, name, tag, excluded: /\(\s*위탁\s*\)/.test(name)});
   }
   if(!list.length){ say("rosterMsg", "명단이 비어 있습니다.", "err"); return; }
   try{
