@@ -43,6 +43,7 @@ td.cur.lock{background:var(--lock);color:var(--mute)}
 td.cur.saved{background:var(--red-soft);color:var(--red)}
 td.cur.add{background:var(--red-soft);color:var(--red);box-shadow:inset 0 0 0 2px var(--red)}
 td.cur.del{color:var(--mute);text-decoration:line-through;box-shadow:inset 0 0 0 2px var(--mute)}
+td.cur.cleared{color:var(--ok);font-size:14px;font-weight:700}
 td.tm{color:var(--red)}
 tr.tap{cursor:pointer}
 tr.tap:active td{filter:brightness(.96)}
@@ -78,7 +79,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=2"></script>
+<script src="config.js?v=3"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -88,7 +89,7 @@ const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPAB
 const DOW = ["일","월","화","수","목","금","토"];
 
 let S = null;              // 서버 상태
-const pendAdd = new Set(), pendDel = new Set();
+const pend = new Set();    // 이번에 누른(상태를 뒤집은) 학생 번호
 let saving = false;
 
 function toast(t, ms=2600){ const el=$("toast"); el.textContent=t; el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"), ms); }
@@ -105,12 +106,21 @@ async function load(){
   if(error){ fail(errText(error)); return; }
   const prevPeriod = S ? S.period : undefined;
   S = data;
-  if(prevPeriod !== undefined && prevPeriod !== S.period && (pendAdd.size||pendDel.size)){
-    pendAdd.clear(); pendDel.clear();
-    toast("교시가 바뀌어 저장하지 않은 변경은 취소되었습니다.", 4000);
+  if(prevPeriod !== S.period){
+    if(prevPeriod !== undefined && pend.size) toast("교시가 바뀌어 저장하지 않은 변경은 취소되었습니다.", 4000);
+    pend.clear();
   }
-  if(prevPeriod !== S.period){ pendAdd.clear(); pendDel.clear(); }
   render();
+}
+
+// 현재 교시 기준 학생 상태
+function stateOf(no){
+  const cur = S.period;
+  const neis = S.neis.some(x => x.no === no && x.slot === String(cur));
+  const mk = (S.marks.find(x => x.no === no && x.period === cur) || {}).kind || null;
+  const base = (neis && mk !== "present") || mk === "absent";     // 저장된 상태: 없음?
+  const toggled = pend.has(no);
+  return {neis, mk, base, toggled, eff: toggled ? !base : base};
 }
 
 function render(){
@@ -125,7 +135,7 @@ function render(){
     $("banner").className = "banner";
     $("banner").innerHTML = `<span class="per">${cur}교시</span><span class="who"></span><span class="time">${curInfo.start}~${curInfo.end}</span>`;
     $("banner").querySelector(".who").textContent = (S.teacher || "시간표 미등록") + (S.teacher ? " 선생님" : "");
-    $("hint").textContent = "없는 학생의 줄을 누른 뒤 아래 [저장]을 눌러 주세요. 다시 누르면 취소됩니다.";
+    $("hint").textContent = "없는 학생의 줄을 누르고 [저장]을 눌러 주세요. 회색 / 는 담임이 미리 표시한 학생입니다. 교실에 있으면 눌러서 해제해 주세요. 변경이 없어도 [저장]을 누르면 확인으로 기록됩니다.";
     $("bar").classList.remove("hidden");
   }else{
     $("banner").className = "banner off";
@@ -135,32 +145,20 @@ function render(){
     $("bar").classList.add("hidden");
   }
 
-  const neis = new Set(S.neis.map(x => x.no + ":" + x.slot));
-  const marks = new Set(S.marks.map(x => x.no + ":" + x.period));
   // 현재 교시 칸만 표시 (수업 시간이 아니면 출석부를 숨김)
   document.querySelector(".tablebox").classList.toggle("hidden", !cur);
-  const slots = cur ? [String(cur)] : [];
-  const head = slots.map(s => `<th class="${s===String(cur)?"cur":""}">${/^\d+$/.test(s)? s+"교시" : s}</th>`).join("");
-  let html = `<thead><tr><th>번호</th><th>성명</th>${head}</tr></thead><tbody>`;
+  if(!cur){ $("tbl").innerHTML = ""; updateBar(); return; }
+  let html = `<thead><tr><th>번호</th><th>성명</th><th class="cur">${cur}교시</th></tr></thead><tbody>`;
   for(const st of S.students){
-    const lockedCur = cur && neis.has(st.no+":"+cur);
-    const tappable = cur && !st.excluded && !lockedCur;
-    html += `<tr data-no="${st.no}" class="${st.excluded?"ex":""} ${tappable?"tap":""}"><td class="no">${st.no}</td><td class="nm"></td>`;
-    for(const s of slots){
-      const isCur = s === String(cur);
-      const n = neis.has(st.no+":"+s), m = /^\d+$/.test(s) && marks.has(st.no+":"+s);
-      let cls = "slot", txt = (n||m) ? "/" : "";
-      if(m && !isCur) cls += " tm";
-      if(isCur){
-        cls += " cur";
-        if(n) cls += " lock";
-        else if(pendAdd.has(st.no)){ cls += " add"; txt = "/"; }
-        else if(pendDel.has(st.no)){ cls += " del"; txt = "/"; }
-        else if(m) cls += " saved";
-      }
-      html += `<td class="${cls}">${txt}</td>`;
+    const tappable = !st.excluded;
+    let cls = "slot cur", txt = "";
+    if(!st.excluded){
+      const s = stateOf(st.no);
+      if(s.toggled){ cls += s.eff ? " add" : " del"; txt = "/"; }
+      else if(s.eff){ cls += s.mk === "absent" ? " saved" : " lock"; txt = "/"; }
+      else if(s.neis && s.mk === "present"){ cls += " cleared"; txt = "출석"; }
     }
-    html += `</tr>`;
+    html += `<tr data-no="${st.no}" class="${st.excluded?"ex":""} ${tappable?"tap":""}"><td class="no">${st.no}</td><td class="nm"></td><td class="${cls}">${txt}</td></tr>`;
   }
   $("tbl").innerHTML = html + "</tbody>";
   $("tbl").querySelectorAll("tr[data-no]").forEach((tr, i) => {
@@ -172,30 +170,32 @@ function render(){
 
 function toggle(no){
   if(saving) return;
-  const saved = S.marks.some(x => x.no === no && x.period === S.period);
-  if(saved){ pendDel.has(no) ? pendDel.delete(no) : pendDel.add(no); }
-  else     { pendAdd.has(no) ? pendAdd.delete(no) : pendAdd.add(no); }
+  pend.has(no) ? pend.delete(no) : pend.add(no);
   render();
 }
 
 function updateBar(){
-  const a = pendAdd.size, r = pendDel.size;
-  $("sum").textContent = (a||r) ? [a?`새로 없음 ${a}명`:"", r?`정정 ${r}명`:""].filter(Boolean).join(" · ") : "변경 없음";
+  let a = 0, p = 0;
+  if(S && S.period) for(const no of pend){ stateOf(no).eff ? a++ : p++; }
+  $("sum").textContent = (a||p) ? [a?`없음으로 ${a}명`:"", p?`출석으로 ${p}명`:""].filter(Boolean).join(" · ") : "변경 없음";
   $("sum").style.color = a ? "var(--red)" : "";
-  $("save").disabled = saving || !(a||r);
+  $("save").disabled = saving || !(S && S.period);
 }
 
 $("save").onclick = async () => {
   if(saving || !S || !S.period) return;
+  const absent = [], present = [];
+  for(const no of pend){ (stateOf(no).eff ? absent : present).push(no); }
   saving = true; updateBar(); $("save").textContent = "저장 중…";
-  const {data, error} = await sb.rpc("save_marks", {p_key: KEY, p_period: S.period, p_add: [...pendAdd], p_remove: [...pendDel]});
+  const {data, error} = await sb.rpc("save_marks", {p_key: KEY, p_period: S.period, p_absent: absent, p_present: present});
   saving = false; $("save").textContent = "저장";
-  if(error){ toast(errText(error).replace(/<[^>]+>/g," "), 4000); pendAdd.clear(); pendDel.clear(); await load(); return; }
-  pendAdd.clear(); pendDel.clear();
+  pend.clear();
+  if(error){ toast(errText(error).replace(/<[^>]+>/g," "), 4000); await load(); return; }
   const parts = [];
-  if(data.added) parts.push(`없는 학생 ${data.added}명`);
-  if(data.removed) parts.push(`정정 ${data.removed}명`);
-  toast(parts.length ? `저장했습니다 (${parts.join(", ")}). 담임선생님께 알림이 갔습니다.` : "저장했습니다.");
+  if(data.absent) parts.push(`없음 ${data.absent}명`);
+  if(data.present) parts.push(`출석 확인 ${data.present}명`);
+  if(data.corrected) parts.push(`정정 ${data.corrected}명`);
+  toast(parts.length ? `저장했습니다 (${parts.join(", ")}). 담임선생님께 알림이 갔습니다.` : "확인했습니다 (변경 없음).");
   await load();
 };
 

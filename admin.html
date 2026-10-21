@@ -45,6 +45,7 @@ td.note{text-align:left;white-space:normal;min-width:220px;font-size:13px}
 td.s{width:52px;font-size:17px}
 td.s.t{color:var(--red);font-weight:800;background:var(--red-soft);cursor:pointer}
 td.s.both{font-weight:800}
+td.s.p{color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;background:var(--accent-soft)}
 tr.ex td{color:var(--mute);background:var(--lock)}
 .legend span{display:inline-block;margin-right:14px}
 .sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid var(--line)}
@@ -97,7 +98,7 @@ tr.ex td{color:var(--mute);background:var(--lock)}
     </div>
     <p class="mute legend">
       <span><i class="sw" style="background:var(--card)"></i>"/" = 나이스 업로드</span>
-      <span><i class="sw" style="background:var(--red-soft);border-color:var(--red)"></i>빨간 "/" = 교과선생님 입력 (누르면 삭제)</span>
+      <span><i class="sw" style="background:var(--red-soft);border-color:var(--red)"></i>빨간 "/" = 교과선생님 입력</span><span><i class="sw" style="background:var(--accent-soft)"></i>"출석" = 교과선생님이 나이스 / 해제</span><span>(교과선생님 표시는 누르면 삭제)</span>
     </p>
     <div class="tbox"><table id="bTable"></table></div>
     <h2>교과선생님 입력 기록</h2>
@@ -178,11 +179,11 @@ tr.ex td{color:var(--mute);background:var(--lock)}
   </section>
 </div>
 
-<script src="config.js?v=2"></script>
+<script src="config.js?v=3"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=2"></script>
+<script src="neis-parse.js?v=3"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -269,22 +270,25 @@ async function loadBoard(){
       h += `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}</td><td>${esc(nd_.kind)}</td>`;
       for(const sl of slots){
         const n = N.has(s.no + ":" + sl), t = /^\d+$/.test(sl) ? T.get(s.no + ":" + sl) : null;
-        if(t) h += `<td class="s t${n ? " both" : ""}" data-no="${s.no}" data-p="${sl}" title="${esc(t.teacher)} ${new Date(t.created_at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}">/</td>`;
+        const tip = t ? `${esc(t.teacher)} ${new Date(t.created_at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}` : "";
+        if(t && t.kind === "present") h += `<td class="s p" data-no="${s.no}" data-p="${sl}" data-k="present" title="나이스 / 해제 · ${tip}">출석</td>`;
+        else if(t) h += `<td class="s t${n ? " both" : ""}" data-no="${s.no}" data-p="${sl}" title="${tip}">/</td>`;
         else h += `<td class="s">${n ? "/" : ""}</td>`;
       }
       h += `<td class="note">${esc(nd_.note)}</td></tr>`;
     }
     $("bTable").innerHTML = h + "</tbody>";
-    $("bTable").querySelectorAll("td.t").forEach(td => td.onclick = () => removeMark(d, +td.dataset.p, +td.dataset.no));
+    $("bTable").querySelectorAll("td.t, td.p").forEach(td => td.onclick = () => removeMark(d, +td.dataset.p, +td.dataset.no, td.dataset.k));
     const name = no => (students.find(s => s.no === no) || {}).name || "";
-    const act = {add:"없음 입력", remove:"정정(취소)", admin_remove:"담임 삭제"};
+    const act = {add:"없음 입력", remove:"정정 → 출석", present:"출석 확인(나이스 / 해제)", unpresent:"정정 → 다시 없음", admin_remove:"담임 삭제", check:"확인(변경 없음)"};
     $("bLog").innerHTML = logs.length ? logs.map(l =>
-      `<div>${new Date(l.at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})} · ${l.period}교시 · ${l.student_no}번 ${esc(name(l.student_no))} · <b>${act[l.action] || l.action}</b> · ${esc(l.teacher || "")}</div>`).join("")
+      `<div>${new Date(l.at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})} · ${l.period}교시 · ${l.action === "check" ? "" : `${l.student_no}번 ${esc(name(l.student_no))} · `}<b>${act[l.action] || l.action}</b> · ${esc(l.teacher || "")}</div>`).join("")
       : `<span class="mute">기록 없음</span>`;
   }catch(e){ $("bTable").innerHTML = `<tr><td class="err">불러오기 실패: ${esc(e.message)}</td></tr>`; }
 }
-async function removeMark(d, p, no){
-  if(!confirm(`${p}교시 ${no}번 교과선생님 입력 "/"를 삭제할까요? (알림은 보내지 않습니다)`)) return;
+async function removeMark(d, p, no, kind){
+  const what = kind === "present" ? "출석 확인(나이스 / 해제)" : '"/"';
+  if(!confirm(`${p}교시 ${no}번 교과선생님 입력 ${what}을(를) 삭제할까요? (알림은 보내지 않습니다)`)) return;
   try{
     must(await sb.from("teacher_marks").delete().match({d, period:p, student_no:no}));
     must(await sb.from("mark_log").insert({d, period:p, student_no:no, action:"admin_remove", teacher:"담임"}));
