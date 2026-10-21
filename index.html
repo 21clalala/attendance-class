@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>수업 출결</title>
+<style>
+:root{
+  --bg:#f3f5f8; --card:#fff; --ink:#1f2633; --mute:#6b7380; --line:#dfe3ea; --head:#f7f8fb;
+  --accent:#2f5bea; --accent-soft:#e8eefe; --red:#d93036; --red-soft:#fdeced; --lock:#eceef2; --ok:#1d8a4e;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#121419; --card:#1b1e25; --ink:#e7e9ee; --mute:#9aa1ad; --line:#2d313b; --head:#20242c;
+         --accent:#7393ff; --accent-soft:#232c45; --red:#ff6b70; --red-soft:#3a1f22; --lock:#262a33; --ok:#3ccf7d; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  -webkit-tap-highlight-color:transparent}
+.wrap{max-width:1100px;margin:0 auto;padding:14px 12px 110px}
+.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:2px 4px 10px}
+.top h1{font-size:19px;margin:0}
+.top .sub{color:var(--mute);font-size:14px}
+.banner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.banner .per{font-size:22px;font-weight:800;color:var(--accent)}
+.banner .who{font-size:20px;font-weight:700}
+.banner .time{color:var(--mute);font-size:14px}
+.banner.off .per{color:var(--mute)}
+.hint{color:var(--mute);font-size:14px;margin:0 4px 10px}
+.tablebox{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:0;text-align:center;white-space:nowrap}
+th{background:var(--head);font-weight:600;color:var(--mute);font-size:13px;padding:9px 6px;position:sticky;top:0;z-index:1}
+td{height:44px}
+td.no{width:48px;color:var(--mute)}
+td.nm{text-align:left;padding-left:10px;font-weight:600;min-width:84px}
+td.slot{width:58px;font-size:18px;color:var(--ink)}
+th.cur{background:var(--accent);color:#fff}
+td.cur{background:var(--accent-soft);font-weight:800}
+td.cur.lock{background:var(--lock);color:var(--mute)}
+td.cur.saved{background:var(--red-soft);color:var(--red)}
+td.cur.add{background:var(--red-soft);color:var(--red);box-shadow:inset 0 0 0 2px var(--red)}
+td.cur.del{color:var(--mute);text-decoration:line-through;box-shadow:inset 0 0 0 2px var(--mute)}
+td.tm{color:var(--red)}
+tr.tap{cursor:pointer}
+tr.tap:active td{filter:brightness(.96)}
+tr.ex td{color:var(--mute);background:var(--lock)}
+tr.ex td.nm::after{content:" 제외";font-size:11px;font-weight:400}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:5}
+.bar .in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar .sum{flex:1;font-weight:700;font-size:16px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px}
+.btn{background:var(--accent);color:#fff;padding:13px 26px;font-weight:700;font-size:17px}
+.btn:disabled{opacity:.4;cursor:default}
+.msg{max-width:520px;margin:60px auto;text-align:center;color:var(--mute);line-height:1.6}
+.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1 id="title">일일출석부</h1><span class="sub" id="date"></span></div>
+  <div id="main" class="hidden">
+    <div class="banner" id="banner"></div>
+    <p class="hint" id="hint"></p>
+    <div class="tablebox"><table id="tbl"></table></div>
+  </div>
+  <div class="msg" id="msg">불러오는 중…</div>
+</div>
+<div class="bar hidden" id="bar"><div class="in">
+  <div class="sum" id="sum">변경 없음</div>
+  <button class="btn" id="save" disabled>저장</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const $ = id => document.getElementById(id);
+const KEY = new URLSearchParams(location.search).get("k") || "";
+const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY,
+  {auth:{persistSession:false, autoRefreshToken:false}});
+const DOW = ["일","월","화","수","목","금","토"];
+
+let S = null;              // 서버 상태
+const pendAdd = new Set(), pendDel = new Set();
+let saving = false;
+
+function toast(t, ms=2600){ const el=$("toast"); el.textContent=t; el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"), ms); }
+function fail(t){ $("main").classList.add("hidden"); $("bar").classList.add("hidden"); $("msg").classList.remove("hidden"); $("msg").innerHTML=t; }
+function errText(e){
+  const m = (e && (e.message||e.details)) || String(e);
+  if(m.includes("invalid_key")) return "주소가 올바르지 않습니다.<br>종이 출석부의 QR 코드를 다시 찍어 주세요.";
+  if(m.includes("not_in_class")||m.includes("period_changed")) return "교시가 끝나 저장되지 않았습니다. 화면을 새로 불러왔습니다.";
+  return "연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.<br><small>"+m+"</small>";
+}
+
+async function load(){
+  const {data, error} = await sb.rpc("get_today", {p_key: KEY});
+  if(error){ fail(errText(error)); return; }
+  const prevPeriod = S ? S.period : undefined;
+  S = data;
+  if(prevPeriod !== undefined && prevPeriod !== S.period && (pendAdd.size||pendDel.size)){
+    pendAdd.clear(); pendDel.clear();
+    toast("교시가 바뀌어 저장하지 않은 변경은 취소되었습니다.", 4000);
+  }
+  if(prevPeriod !== S.period){ pendAdd.clear(); pendDel.clear(); }
+  render();
+}
+
+function render(){
+  $("msg").classList.add("hidden"); $("main").classList.remove("hidden");
+  const d = new Date(S.date + "T00:00:00");
+  $("title").textContent = `${S.label} 일일출석부`;
+  $("date").textContent = `${S.date.replaceAll("-",".")}.(${DOW[d.getDay()]})`;
+
+  const cur = S.period, sch = S.schedule || [];
+  const curInfo = sch.find(x => x.period === cur);
+  if(cur){
+    $("banner").className = "banner";
+    $("banner").innerHTML = `<span class="per">${cur}교시</span><span class="who"></span><span class="time">${curInfo.start}~${curInfo.end}</span>`;
+    $("banner").querySelector(".who").textContent = (S.teacher || "시간표 미등록") + (S.teacher ? " 선생님" : "");
+    $("hint").textContent = "없는 학생의 줄을 누른 뒤 아래 [저장]을 눌러 주세요. 다시 누르면 취소됩니다.";
+    $("bar").classList.remove("hidden");
+  }else{
+    $("banner").className = "banner off";
+    $("banner").innerHTML = `<span class="per">지금은 수업 시간이 아닙니다</span><span class="time"></span>`;
+    $("banner").querySelector(".time").textContent = S.next ? `다음: ${S.next.period}교시 ${S.next.start}` : (sch.length ? "오늘 수업이 모두 끝났습니다" : "오늘은 수업이 없습니다");
+    $("hint").textContent = "수업 시간에만 해당 교시를 입력할 수 있습니다.";
+    $("bar").classList.add("hidden");
+  }
+
+  const neis = new Set(S.neis.map(x => x.no + ":" + x.slot));
+  const marks = new Set(S.marks.map(x => x.no + ":" + x.period));
+  const slots = ["조회", ...sch.map(x => String(x.period)), "종례"];
+  const head = slots.map(s => `<th class="${s===String(cur)?"cur":""}">${/^\d+$/.test(s)? s+"교시" : s}</th>`).join("");
+  let html = `<thead><tr><th>번호</th><th>성명</th>${head}</tr></thead><tbody>`;
+  for(const st of S.students){
+    const lockedCur = cur && neis.has(st.no+":"+cur);
+    const tappable = cur && !st.excluded && !lockedCur;
+    html += `<tr data-no="${st.no}" class="${st.excluded?"ex":""} ${tappable?"tap":""}"><td class="no">${st.no}</td><td class="nm"></td>`;
+    for(const s of slots){
+      const isCur = s === String(cur);
+      const n = neis.has(st.no+":"+s), m = /^\d+$/.test(s) && marks.has(st.no+":"+s);
+      let cls = "slot", txt = (n||m) ? "/" : "";
+      if(m && !isCur) cls += " tm";
+      if(isCur){
+        cls += " cur";
+        if(n) cls += " lock";
+        else if(pendAdd.has(st.no)){ cls += " add"; txt = "/"; }
+        else if(pendDel.has(st.no)){ cls += " del"; txt = "/"; }
+        else if(m) cls += " saved";
+      }
+      html += `<td class="${cls}">${txt}</td>`;
+    }
+    html += `</tr>`;
+  }
+  $("tbl").innerHTML = html + "</tbody>";
+  $("tbl").querySelectorAll("tr[data-no]").forEach((tr, i) => {
+    tr.querySelector(".nm").textContent = S.students[i].name;
+    if(tr.classList.contains("tap")) tr.onclick = () => toggle(+tr.dataset.no);
+  });
+  updateBar();
+}
+
+function toggle(no){
+  if(saving) return;
+  const saved = S.marks.some(x => x.no === no && x.period === S.period);
+  if(saved){ pendDel.has(no) ? pendDel.delete(no) : pendDel.add(no); }
+  else     { pendAdd.has(no) ? pendAdd.delete(no) : pendAdd.add(no); }
+  render();
+}
+
+function updateBar(){
+  const a = pendAdd.size, r = pendDel.size;
+  $("sum").textContent = (a||r) ? [a?`새로 없음 ${a}명`:"", r?`정정 ${r}명`:""].filter(Boolean).join(" · ") : "변경 없음";
+  $("sum").style.color = a ? "var(--red)" : "";
+  $("save").disabled = saving || !(a||r);
+}
+
+$("save").onclick = async () => {
+  if(saving || !S || !S.period) return;
+  saving = true; updateBar(); $("save").textContent = "저장 중…";
+  const {data, error} = await sb.rpc("save_marks", {p_key: KEY, p_period: S.period, p_add: [...pendAdd], p_remove: [...pendDel]});
+  saving = false; $("save").textContent = "저장";
+  if(error){ toast(errText(error).replace(/<[^>]+>/g," "), 4000); pendAdd.clear(); pendDel.clear(); await load(); return; }
+  pendAdd.clear(); pendDel.clear();
+  const parts = [];
+  if(data.added) parts.push(`없는 학생 ${data.added}명`);
+  if(data.removed) parts.push(`정정 ${data.removed}명`);
+  toast(parts.length ? `저장했습니다 (${parts.join(", ")}). 담임선생님께 알림이 갔습니다.` : "저장했습니다.");
+  await load();
+};
+
+if(!KEY) fail("주소가 올바르지 않습니다.<br>종이 출석부의 QR 코드를 다시 찍어 주세요.");
+else {
+  load();
+  setInterval(() => { if(!saving) load(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && !saving) load(); });
+}
+</script>
+</body>
+</html>

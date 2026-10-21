@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>출결 관리</title>
+<style>
+:root{
+  --bg:#f3f5f8; --card:#fff; --ink:#1f2633; --mute:#6b7380; --line:#dfe3ea; --head:#f7f8fb;
+  --accent:#2f5bea; --accent-soft:#e8eefe; --red:#d93036; --red-soft:#fdeced; --lock:#eceef2; --ok:#1d8a4e; --warn:#b26b00;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#121419; --card:#1b1e25; --ink:#e7e9ee; --mute:#9aa1ad; --line:#2d313b; --head:#20242c;
+         --accent:#7393ff; --accent-soft:#232c45; --red:#ff6b70; --red-soft:#3a1f22; --lock:#262a33; --ok:#3ccf7d; --warn:#f0a940; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0}
+h2{font-size:16px;margin:22px 0 10px}
+.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.head .sp{flex:1}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;font:inherit;color:var(--mute);cursor:pointer;font-weight:600}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+input[type=time]{padding:6px 6px}
+button.btn{font:inherit;cursor:pointer;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:9px 16px;font-weight:700}
+button.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+button.btn.danger{background:transparent;color:var(--red);border:1px solid var(--line)}
+button.btn:disabled{opacity:.45;cursor:default}
+.mute{color:var(--mute);font-size:13px}
+.warn{color:var(--warn);font-weight:600}
+.ok{color:var(--ok);font-weight:600}
+.err{color:var(--red);font-weight:600}
+.tbox{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:center;white-space:nowrap}
+th{background:var(--head);color:var(--mute);font-size:13px;font-weight:600;position:sticky;top:0}
+td.l{text-align:left}
+td.note{text-align:left;white-space:normal;min-width:220px;font-size:13px}
+td.s{width:52px;font-size:17px}
+td.s.t{color:var(--red);font-weight:800;background:var(--red-soft);cursor:pointer}
+td.s.both{font-weight:800}
+tr.ex td{color:var(--mute);background:var(--lock)}
+.legend span{display:inline-block;margin-right:14px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid var(--line)}
+.grid-tt input{width:110px}
+.hidden{display:none!important}
+.login{max-width:380px;margin:80px auto}
+.login input{width:100%;margin-bottom:10px}
+#qr{background:#fff;padding:12px;display:inline-block;border-radius:8px}
+.url{word-break:break-all;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--head);padding:8px;border-radius:6px}
+.log{font-size:13px;max-height:260px;overflow:auto}
+.log div{padding:3px 0;border-bottom:1px dashed var(--line)}
+@media print{
+  body *{visibility:hidden}
+  #printArea,#printArea *{visibility:visible}
+  #printArea{position:absolute;left:0;top:0}
+}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div class="login card hidden" id="loginBox">
+  <h1 style="margin-bottom:14px">출결 관리 로그인</h1>
+  <input id="email" type="email" placeholder="이메일" autocomplete="username">
+  <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+  <button class="btn" id="loginBtn" style="width:100%">로그인</button>
+  <p class="err" id="loginErr"></p>
+</div>
+
+<div class="wrap hidden" id="app">
+  <div class="head">
+    <h1 id="appTitle">출결 관리</h1><span class="sp"></span>
+    <span class="mute" id="who"></span>
+    <button class="btn ghost" id="logout">로그아웃</button>
+  </div>
+  <div class="tabs" id="tabs">
+    <button data-t="board" class="on">출석부</button>
+    <button data-t="upload">나이스 업로드</button>
+    <button data-t="tt">시간표·시정</button>
+    <button data-t="day">날짜별 변경</button>
+    <button data-t="set">설정·QR</button>
+  </div>
+
+  <!-- 출석부 -->
+  <section data-p="board">
+    <div class="row" style="margin-bottom:10px">
+      <input type="date" id="bDate">
+      <button class="btn ghost" id="bToday">오늘</button>
+      <span class="mute" id="bInfo"></span>
+    </div>
+    <p class="mute legend">
+      <span><i class="sw" style="background:var(--card)"></i>"/" = 나이스 업로드</span>
+      <span><i class="sw" style="background:var(--red-soft);border-color:var(--red)"></i>빨간 "/" = 교과선생님 입력 (누르면 삭제)</span>
+    </p>
+    <div class="tbox"><table id="bTable"></table></div>
+    <h2>교과선생님 입력 기록</h2>
+    <div class="card log" id="bLog"></div>
+  </section>
+
+  <!-- 업로드 -->
+  <section data-p="upload" class="hidden">
+    <div class="card">
+      <p style="margin-top:0">나이스 <b>일일출석부</b> 엑셀(xls/xlsx)을 선택하세요. 파일의 날짜에 그대로 적용됩니다. 같은 날짜로 다시 올리면 그날 나이스 표시는 새 파일 내용으로 바뀝니다(교과선생님 입력은 유지).</p>
+      <input type="file" id="uFile" accept=".xls,.xlsx">
+      <div id="uResult" style="margin-top:12px"></div>
+    </div>
+    <div class="tbox hidden" id="uPrevBox"><table id="uPrev"></table></div>
+  </section>
+
+  <!-- 시간표·시정 -->
+  <section data-p="tt" class="hidden">
+    <h2 style="margin-top:0">기본 시간표 (요일 × 교시 → 선생님)</h2>
+    <div class="tbox grid-tt"><table id="ttTable"></table></div>
+    <h2>기본 시정표</h2>
+    <div class="tbox" style="max-width:520px"><table id="bellTable"></table></div>
+    <h2>요일별 마지막 교시</h2>
+    <div class="row" id="wmBox"></div>
+    <div class="row" style="margin-top:16px"><button class="btn" id="ttSave">저장</button><span id="ttMsg"></span></div>
+  </section>
+
+  <!-- 날짜별 변경 -->
+  <section data-p="day" class="hidden">
+    <div class="row" style="margin-bottom:10px">
+      <input type="date" id="dDate"><span class="mute" id="dInfo"></span>
+    </div>
+    <div class="card">
+      <p class="mute" style="margin-top:0">수업이 없는 교시는 체크를 끄고, 시각이 바뀌면 고친 뒤 저장하세요. 교체·대강 칸에 이름을 넣으면 그날 그 교시만 바뀝니다.</p>
+      <div class="tbox"><table id="dTable"></table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="dSave">저장</button>
+        <button class="btn ghost" id="dReset">기본 시정으로 되돌리기</button>
+        <button class="btn danger" id="dNone">수업 없는 날로 설정</button>
+        <span id="dMsg"></span>
+      </div>
+    </div>
+    <h2>예정된 변경</h2>
+    <div class="card log" id="dUpcoming"></div>
+  </section>
+
+  <!-- 설정 -->
+  <section data-p="set" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">교과선생님 접속 QR</h2>
+      <div id="printArea">
+        <div id="qr"></div>
+        <p class="url" id="tUrl"></p>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="window.print()">QR 인쇄</button>
+        <button class="btn ghost" id="copyUrl">주소 복사</button>
+        <button class="btn danger" id="newKey">주소 새로 만들기</button>
+      </div>
+      <p class="mute">주소를 새로 만들면 이전 QR은 더 이상 열리지 않습니다. QR이 학생에게 노출됐을 때 사용하세요.</p>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">알림 (ntfy)</h2>
+      <p class="mute" style="margin-top:0">휴대폰 ntfy 앱에서 아래 토픽을 구독하세요.</p>
+      <div class="row"><input id="topic" style="flex:1;min-width:260px"><button class="btn ghost" id="topicSave">토픽 저장</button><button class="btn" id="testNotify">테스트 알림</button></div>
+      <p id="setMsg"></p>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">학급 표시</h2>
+      <div class="row"><input id="label" style="width:120px"><button class="btn ghost" id="labelSave">저장</button></div>
+    </div>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="neis-parse.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
+const DOW = ["일","월","화","수","목","금","토"];
+const kstToday = () => new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Seoul"}).format(new Date());
+const isoDow = d => { const g = new Date(d + "T00:00:00").getDay(); return g === 0 ? 7 : g; };
+const fmtDate = d => `${d.replaceAll("-",".")}.(${DOW[new Date(d+"T00:00:00").getDay()]})`;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const t5 = t => (t || "").slice(0,5);
+function must(r){ if(r.error) throw r.error; return r.data; }
+function say(el, text, cls){ $(el).className = cls || ""; $(el).textContent = text; }
+
+/* ---------- 로그인 ---------- */
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ $("loginBox").classList.remove("hidden"); $("app").classList.add("hidden"); return; }
+  const {data:ok, error} = await sb.rpc("is_admin");
+  if(error || !ok){
+    $("loginBox").classList.remove("hidden"); $("app").classList.add("hidden");
+    $("loginErr").textContent = "관리자 권한이 없는 계정입니다."; await sb.auth.signOut(); return;
+  }
+  $("loginBox").classList.add("hidden"); $("app").classList.remove("hidden");
+  $("who").textContent = session.user.email;
+  await loadBase();
+  $("bDate").value = kstToday(); $("dDate").value = kstToday();
+  loadBoard(); subscribe();
+}
+$("loginBtn").onclick = async () => {
+  $("loginErr").textContent = "";
+  const {error} = await sb.auth.signInWithPassword({email:$("email").value.trim(), password:$("pw").value});
+  if(error){ $("loginErr").textContent = "로그인 실패: " + error.message; return; }
+  boot();
+};
+$("pw").onkeydown = e => { if(e.key === "Enter") $("loginBtn").click(); };
+$("logout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+/* ---------- 탭 ---------- */
+$("tabs").onclick = e => {
+  const t = e.target.dataset.t; if(!t) return;
+  [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll("section[data-p]").forEach(s => s.classList.toggle("hidden", s.dataset.p !== t));
+  if(t === "board") loadBoard();
+  if(t === "tt") renderTT();
+  if(t === "day") loadDay();
+  if(t === "set") loadSettings();
+};
+
+/* ---------- 공통 데이터 ---------- */
+let BASE = {timetable:[], bell:[], wmax:[], config:{}};
+async function loadBase(){
+  const [tt, bell, wm, cfg] = await Promise.all([
+    sb.from("timetable").select("*"), sb.from("bell_default").select("*").order("period"),
+    sb.from("weekday_max").select("*").order("weekday"), sb.from("config").select("*")]);
+  BASE.timetable = must(tt); BASE.bell = must(bell); BASE.wmax = must(wm);
+  BASE.config = Object.fromEntries(must(cfg).map(r => [r.key, r.value]));
+  $("appTitle").textContent = `${BASE.config.class_label || ""} 출결 관리`;
+}
+const defaultTeacher = (d, p) => (BASE.timetable.find(r => r.weekday === isoDow(d) && r.period === p) || {}).teacher || "";
+
+/* ---------- 출석부 ---------- */
+let boardTimer = null;
+async function loadBoard(){
+  const d = $("bDate").value || kstToday();
+  try{
+    const [st, nm, nd, tm, sch, lg] = await Promise.all([
+      sb.from("students").select("*").order("no"),
+      sb.from("neis_marks").select("*").eq("d", d),
+      sb.from("neis_day").select("*").eq("d", d),
+      sb.from("teacher_marks").select("*").eq("d", d),
+      sb.rpc("admin_schedule", {p_d: d}),
+      sb.from("mark_log").select("*").eq("d", d).order("at")]);
+    const students = must(st), neis = must(nm), nday = must(nd), tmarks = must(tm), schedule = must(sch), logs = must(lg);
+    const N = new Set(neis.map(x => x.student_no + ":" + x.slot));
+    const T = new Map(tmarks.map(x => [x.student_no + ":" + x.period, x]));
+    const D = new Map(nday.map(x => [x.student_no, x]));
+    const slots = ["조회", ...schedule.map(x => String(x.period)), "종례"];
+    $("bInfo").textContent = `${fmtDate(d)} · ${schedule.length ? schedule.length + "교시" : "수업 없음"}` + (neis.length || nday.length ? "" : " · 나이스 업로드 없음");
+    let h = `<thead><tr><th>번호</th><th>성명</th><th>마감</th>${slots.map(s => {
+      const sc = schedule.find(x => String(x.period) === s);
+      return `<th title="${sc ? esc(sc.teacher || "") : ""}">${/^\d+$/.test(s) ? s + "교시" : s}${sc && sc.teacher ? `<br><span style="font-weight:400">${esc(sc.teacher)}</span>` : ""}</th>`;
+    }).join("")}<th>비고</th></tr></thead><tbody>`;
+    for(const s of students){
+      const nd_ = D.get(s.no) || {};
+      h += `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}</td><td>${esc(nd_.kind)}</td>`;
+      for(const sl of slots){
+        const n = N.has(s.no + ":" + sl), t = /^\d+$/.test(sl) ? T.get(s.no + ":" + sl) : null;
+        if(t) h += `<td class="s t${n ? " both" : ""}" data-no="${s.no}" data-p="${sl}" title="${esc(t.teacher)} ${new Date(t.created_at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}">/</td>`;
+        else h += `<td class="s">${n ? "/" : ""}</td>`;
+      }
+      h += `<td class="note">${esc(nd_.note)}</td></tr>`;
+    }
+    $("bTable").innerHTML = h + "</tbody>";
+    $("bTable").querySelectorAll("td.t").forEach(td => td.onclick = () => removeMark(d, +td.dataset.p, +td.dataset.no));
+    const name = no => (students.find(s => s.no === no) || {}).name || "";
+    const act = {add:"없음 입력", remove:"정정(취소)", admin_remove:"담임 삭제"};
+    $("bLog").innerHTML = logs.length ? logs.map(l =>
+      `<div>${new Date(l.at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})} · ${l.period}교시 · ${l.student_no}번 ${esc(name(l.student_no))} · <b>${act[l.action] || l.action}</b> · ${esc(l.teacher || "")}</div>`).join("")
+      : `<span class="mute">기록 없음</span>`;
+  }catch(e){ $("bTable").innerHTML = `<tr><td class="err">불러오기 실패: ${esc(e.message)}</td></tr>`; }
+}
+async function removeMark(d, p, no){
+  if(!confirm(`${p}교시 ${no}번 교과선생님 입력 "/"를 삭제할까요? (알림은 보내지 않습니다)`)) return;
+  try{
+    must(await sb.from("teacher_marks").delete().match({d, period:p, student_no:no}));
+    must(await sb.from("mark_log").insert({d, period:p, student_no:no, action:"admin_remove", teacher:"담임"}));
+  }catch(e){ alert("삭제 실패: " + e.message); }
+  loadBoard();
+}
+$("bDate").onchange = loadBoard;
+$("bToday").onclick = () => { $("bDate").value = kstToday(); loadBoard(); };
+function subscribe(){
+  const refresh = () => { clearTimeout(boardTimer); boardTimer = setTimeout(() => { if(!document.querySelector('section[data-p="board"]').classList.contains("hidden")) loadBoard(); }, 400); };
+  sb.channel("attend").on("postgres_changes", {event:"*", schema:"public", table:"teacher_marks"}, refresh)
+                      .on("postgres_changes", {event:"*", schema:"public", table:"neis_marks"}, refresh).subscribe();
+  setInterval(refresh, 60000);   // 실시간 연결이 끊겨도 1분마다 갱신
+}
+
+/* ---------- 업로드 ---------- */
+let PARSED = null;
+$("uFile").onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  PARSED = null; $("uPrevBox").classList.add("hidden");
+  try{
+    const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+    const rows = [];
+    wb.SheetNames.forEach(n => rows.push(...XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:false, defval:""})));
+    PARSED = parseNeis(rows);
+  }catch(err){ $("uResult").innerHTML = `<p class="err">파일을 읽지 못했습니다: ${esc(err.message)}</p>`; return; }
+  const P = PARSED;
+  if(!P.date || !P.students.length){ $("uResult").innerHTML = `<p class="err">나이스 일일출석부 형식을 찾지 못했습니다. (날짜 ${P.date || "없음"}, 학생 ${P.students.length}명)</p>`; PARSED = null; return; }
+  const today = kstToday(), marked = P.students.filter(s => s.slots.length).length;
+  $("uResult").innerHTML =
+    `<p><b>${fmtDate(P.date)}</b> · 학생 ${P.students.length}명 · 출결 사항 있는 학생 ${marked}명` +
+    (P.students.some(s => s.excluded) ? ` · 제외(위탁) ${P.students.filter(s => s.excluded).map(s => s.no + "번").join(", ")}` : "") + `</p>` +
+    (P.date !== today ? `<p class="warn">파일 날짜(${P.date})가 오늘(${today})과 다릅니다. 파일 날짜로 적용됩니다.</p>` : "") +
+    `<button class="btn" id="uApply">이 내용으로 적용</button> <span id="uMsg"></span>`;
+  const slots = ["조회","1","2","3","4","5","6","7","종례"];
+  $("uPrev").innerHTML = `<thead><tr><th>번호</th><th>성명</th><th>마감</th>${slots.map(s => `<th>${/^\d$/.test(s) ? s + "교시" : s}</th>`).join("")}<th>비고</th></tr></thead><tbody>` +
+    P.students.map(s => `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}</td><td>${esc(s.kind)}</td>${slots.map(sl => `<td class="s">${s.slots.includes(sl) ? "/" : ""}</td>`).join("")}<td class="note">${esc(s.note)}</td></tr>`).join("") + "</tbody>";
+  $("uPrevBox").classList.remove("hidden");
+  $("uApply").onclick = applyUpload;
+};
+async function applyUpload(){
+  const P = PARSED; if(!P) return;
+  $("uApply").disabled = true; say("uMsg", "적용 중…", "mute");
+  try{
+    const nos = P.students.map(s => s.no);
+    must(await sb.from("students").upsert(P.students.map(s => ({no:s.no, name:s.name, excluded:s.excluded}))));
+    must(await sb.from("students").delete().not("no", "in", `(${nos.join(",")})`));
+    must(await sb.from("neis_marks").delete().eq("d", P.date));
+    const marks = P.students.flatMap(s => s.slots.map(sl => ({d:P.date, student_no:s.no, slot:sl})));
+    if(marks.length) must(await sb.from("neis_marks").insert(marks));
+    must(await sb.from("neis_day").delete().eq("d", P.date));
+    const days = P.students.filter(s => s.kind || s.note).map(s => ({d:P.date, student_no:s.no, kind:s.kind || null, note:s.note || null}));
+    if(days.length) must(await sb.from("neis_day").insert(days));
+    say("uMsg", `적용 완료 ("/" ${marks.length}칸)`, "ok");
+    $("bDate").value = P.date;
+  }catch(e){ say("uMsg", "적용 실패: " + e.message, "err"); $("uApply").disabled = false; }
+}
+
+/* ---------- 시간표·시정 ---------- */
+function renderTT(){
+  const maxP = Math.max(7, ...BASE.bell.map(b => b.period));
+  let h = `<thead><tr><th>교시</th>${[1,2,3,4,5].map(w => `<th>${DOW[w]}</th>`).join("")}</tr></thead><tbody>`;
+  for(let p = 1; p <= maxP; p++){
+    h += `<tr><td>${p}교시</td>` + [1,2,3,4,5].map(w => {
+      const v = (BASE.timetable.find(r => r.weekday === w && r.period === p) || {}).teacher || "";
+      return `<td><input data-w="${w}" data-p="${p}" value="${esc(v)}" placeholder="—"></td>`;
+    }).join("") + `</tr>`;
+  }
+  $("ttTable").innerHTML = h + "</tbody>";
+  $("bellTable").innerHTML = `<thead><tr><th>교시</th><th>시작</th><th>종료</th></tr></thead><tbody>` +
+    Array.from({length:maxP}, (_, i) => i + 1).map(p => {
+      const b = BASE.bell.find(x => x.period === p) || {};
+      return `<tr><td>${p}교시</td><td><input type="time" data-bs="${p}" value="${t5(b.start_t)}"></td><td><input type="time" data-be="${p}" value="${t5(b.end_t)}"></td></tr>`;
+    }).join("") + "</tbody>";
+  $("wmBox").innerHTML = [1,2,3,4,5].map(w => {
+    const v = (BASE.wmax.find(x => x.weekday === w) || {}).max_period ?? 0;
+    return `<label>${DOW[w]} <select data-wm="${w}">${Array.from({length:maxP + 1}, (_, i) => `<option value="${i}" ${i === v ? "selected" : ""}>${i ? i + "교시" : "수업 없음"}</option>`).join("")}</select></label>`;
+  }).join(" ");
+}
+$("ttSave").onclick = async () => {
+  say("ttMsg", "저장 중…", "mute");
+  try{
+    const tt = [...document.querySelectorAll("#ttTable input")].filter(i => i.value.trim())
+      .map(i => ({weekday:+i.dataset.w, period:+i.dataset.p, teacher:i.value.trim()}));
+    must(await sb.from("timetable").delete().gte("weekday", 1));
+    if(tt.length) must(await sb.from("timetable").insert(tt));
+    const bell = [...document.querySelectorAll("[data-bs]")].filter(i => i.value && document.querySelector(`[data-be="${i.dataset.bs}"]`).value)
+      .map(i => ({period:+i.dataset.bs, start_t:i.value, end_t:document.querySelector(`[data-be="${i.dataset.bs}"]`).value}));
+    if(bell.some(b => b.start_t >= b.end_t)) throw new Error("종료 시각이 시작 시각보다 빠른 교시가 있습니다.");
+    must(await sb.from("bell_default").delete().gte("period", 1));
+    must(await sb.from("bell_default").insert(bell));
+    must(await sb.from("weekday_max").upsert([...document.querySelectorAll("[data-wm]")].map(s => ({weekday:+s.dataset.wm, max_period:+s.value}))));
+    await loadBase(); renderTT(); say("ttMsg", "저장했습니다.", "ok");
+  }catch(e){ say("ttMsg", "저장 실패: " + e.message, "err"); }
+};
+
+/* ---------- 날짜별 변경 ---------- */
+let DAY = null;
+async function loadDay(){
+  const d = $("dDate").value || kstToday();
+  try{
+    const [ds, ov, up1, up2] = await Promise.all([
+      sb.from("day_schedule").select("*").eq("d", d).maybeSingle(),
+      sb.from("teacher_override").select("*").eq("d", d),
+      sb.from("day_schedule").select("*").gte("d", kstToday()).order("d"),
+      sb.from("teacher_override").select("*").gte("d", kstToday()).order("d").order("period")]);
+    const dsRow = must(ds), ovs = must(ov);
+    DAY = {d, custom: !!dsRow};
+    const maxW = (BASE.wmax.find(x => x.weekday === isoDow(d)) || {}).max_period || 0;
+    const custom = dsRow ? new Map(dsRow.periods.map(x => [x.p, x])) : null;
+    const maxP = Math.max(7, ...BASE.bell.map(b => b.period));
+    $("dInfo").textContent = `${fmtDate(d)} · ` + (dsRow ? (dsRow.periods.length ? "시정 변경됨" : "수업 없는 날") : "기본 시정");
+    let h = `<thead><tr><th>수업</th><th>교시</th><th>시작</th><th>종료</th><th>기본 선생님</th><th>교체·대강</th></tr></thead><tbody>`;
+    for(let p = 1; p <= maxP; p++){
+      const b = BASE.bell.find(x => x.period === p) || {};
+      const c = custom ? custom.get(p) : null;
+      const on = custom ? !!c : p <= maxW;
+      const st = c ? c.s : t5(b.start_t), en = c ? c.e : t5(b.end_t);
+      const o = (ovs.find(x => x.period === p) || {}).teacher || "";
+      h += `<tr><td><input type="checkbox" data-on="${p}" ${on ? "checked" : ""}></td><td>${p}교시</td>
+        <td><input type="time" data-s="${p}" value="${st}"></td><td><input type="time" data-e="${p}" value="${en}"></td>
+        <td>${esc(defaultTeacher(d, p)) || '<span class="mute">—</span>'}</td>
+        <td><input data-o="${p}" value="${esc(o)}" placeholder="그대로" style="width:120px"></td></tr>`;
+    }
+    $("dTable").innerHTML = h + "</tbody>";
+    const ups = [
+      ...must(up1).map(x => ({d:x.d, t:x.periods.length ? `시정 변경 (${x.periods.map(p => p.p + "교시 " + p.s).join(", ")})` : "수업 없는 날"})),
+      ...must(up2).map(x => ({d:x.d, t:`${x.period}교시 → ${x.teacher}`}))].sort((a, b) => a.d.localeCompare(b.d));
+    $("dUpcoming").innerHTML = ups.length ? ups.map(u => `<div><b>${fmtDate(u.d)}</b> · ${esc(u.t)}</div>`).join("") : `<span class="mute">없음</span>`;
+    say("dMsg", "");
+  }catch(e){ say("dMsg", "불러오기 실패: " + e.message, "err"); }
+}
+$("dDate").onchange = loadDay;
+$("dSave").onclick = async () => {
+  const d = DAY.d;
+  try{
+    const rows = [...document.querySelectorAll("[data-on]")].filter(c => c.checked).map(c => {
+      const p = +c.dataset.on;
+      return {p, s:document.querySelector(`[data-s="${p}"]`).value, e:document.querySelector(`[data-e="${p}"]`).value};
+    });
+    if(rows.some(r => !r.s || !r.e || r.s >= r.e)) throw new Error("시작·종료 시각을 확인하세요.");
+    const maxW = (BASE.wmax.find(x => x.weekday === isoDow(d)) || {}).max_period || 0;
+    const def = BASE.bell.filter(b => b.period <= maxW).map(b => ({p:b.period, s:t5(b.start_t), e:t5(b.end_t)}));
+    const same = JSON.stringify(rows) === JSON.stringify(def);
+    if(same) must(await sb.from("day_schedule").delete().eq("d", d));
+    else must(await sb.from("day_schedule").upsert({d, periods:rows}));
+    must(await sb.from("teacher_override").delete().eq("d", d));
+    const ov = [...document.querySelectorAll("[data-o]")].filter(i => i.value.trim()).map(i => ({d, period:+i.dataset.o, teacher:i.value.trim()}));
+    if(ov.length) must(await sb.from("teacher_override").insert(ov));
+    await loadDay(); say("dMsg", "저장했습니다.", "ok");
+  }catch(e){ say("dMsg", "저장 실패: " + e.message, "err"); }
+};
+$("dReset").onclick = async () => {
+  try{ must(await sb.from("day_schedule").delete().eq("d", DAY.d)); await loadDay(); say("dMsg", "기본 시정으로 되돌렸습니다.", "ok"); }
+  catch(e){ say("dMsg", "실패: " + e.message, "err"); }
+};
+$("dNone").onclick = async () => {
+  if(!confirm(`${fmtDate(DAY.d)}을(를) 수업 없는 날로 설정할까요?`)) return;
+  try{ must(await sb.from("day_schedule").upsert({d:DAY.d, periods:[]})); await loadDay(); say("dMsg", "수업 없는 날로 설정했습니다.", "ok"); }
+  catch(e){ say("dMsg", "실패: " + e.message, "err"); }
+};
+
+/* ---------- 설정 ---------- */
+function teacherUrl(){
+  const base = location.href.split(/[?#]/)[0].replace(/admin\.html$/, "");
+  return base + "?k=" + BASE.config.access_key;
+}
+function loadSettings(){
+  const url = teacherUrl();
+  $("tUrl").textContent = url;
+  $("qr").innerHTML = ""; new QRCode($("qr"), {text:url, width:220, height:220, correctLevel:QRCode.CorrectLevel.M});
+  $("topic").value = BASE.config.ntfy_topic || "";
+  $("label").value = BASE.config.class_label || "";
+}
+async function setConfig(key, value){ must(await sb.from("config").upsert({key, value})); await loadBase(); }
+$("copyUrl").onclick = () => navigator.clipboard.writeText(teacherUrl()).then(() => say("setMsg", "주소를 복사했습니다.", "ok"));
+$("newKey").onclick = async () => {
+  if(!confirm("주소를 새로 만들면 지금 붙여 둔 QR은 더 이상 열리지 않습니다. 진행할까요?")) return;
+  const k = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, "0")).join("");
+  try{ await setConfig("access_key", k); loadSettings(); say("setMsg", "새 주소를 만들었습니다. QR을 다시 인쇄하세요.", "warn"); }
+  catch(e){ say("setMsg", "실패: " + e.message, "err"); }
+};
+$("topicSave").onclick = async () => {
+  const v = $("topic").value.trim();
+  if(v.length < 16){ say("setMsg", "토픽은 다른 사람이 추측하지 못하도록 16자 이상으로 해 주세요.", "err"); return; }
+  try{ await setConfig("ntfy_topic", v); say("setMsg", "토픽을 저장했습니다.", "ok"); }catch(e){ say("setMsg", "실패: " + e.message, "err"); }
+};
+$("testNotify").onclick = async () => {
+  const {error} = await sb.rpc("admin_test_notify");
+  say("setMsg", error ? "실패: " + error.message : "테스트 알림을 보냈습니다. 휴대폰을 확인하세요.", error ? "err" : "ok");
+};
+$("labelSave").onclick = async () => {
+  try{ await setConfig("class_label", $("label").value.trim() || "3-2"); say("setMsg", "저장했습니다.", "ok"); }catch(e){ say("setMsg", "실패: " + e.message, "err"); }
+};
+
+boot();
+</script>
+</body>
+</html>
