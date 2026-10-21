@@ -159,6 +159,9 @@ tr.ex td{color:var(--mute);background:var(--lock)}
         <button class="btn danger" id="newKey">주소 새로 만들기</button>
       </div>
       <p class="mute">주소를 새로 만들면 이전 QR은 더 이상 열리지 않습니다. QR이 학생에게 노출됐을 때 사용하세요.</p>
+      <p style="margin-bottom:4px"><b>체험용 주소</b> <span class="mute">— 수업 시간과 상관없이 가짜 명단으로 열리고, 저장하면 [체험] 알림만 갑니다(출결 기록 없음).</span></p>
+      <p class="url" id="demoUrl"></p>
+      <div class="row"><button class="btn ghost" id="copyDemo">체험용 주소 복사</button></div>
     </div>
     <div class="card">
       <h2 style="margin-top:0">알림 (ntfy)</h2>
@@ -179,11 +182,11 @@ tr.ex td{color:var(--mute);background:var(--lock)}
   </section>
 </div>
 
-<script src="config.js?v=3"></script>
+<script src="config.js?v=4"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=3"></script>
+<script src="neis-parse.js?v=4"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -458,6 +461,7 @@ function teacherUrl(){
 function loadSettings(){
   const url = teacherUrl();
   $("tUrl").textContent = url;
+  $("demoUrl").textContent = url + "&demo=1";
   $("qr").innerHTML = ""; new QRCode($("qr"), {text:url, width:220, height:220, correctLevel:QRCode.CorrectLevel.M});
   $("topic").value = BASE.config.ntfy_topic || "";
   $("label").value = BASE.config.class_label || "";
@@ -488,6 +492,7 @@ $("rosterSave").onclick = async () => {
   }catch(e){ say("rosterMsg", "저장 실패: " + e.message, "err"); }
 };
 async function setConfig(key, value){ must(await sb.from("config").upsert({key, value})); await loadBase(); }
+$("copyDemo").onclick = () => navigator.clipboard.writeText(teacherUrl() + "&demo=1").then(() => say("setMsg", "체험용 주소를 복사했습니다.", "ok"));
 $("copyUrl").onclick = () => navigator.clipboard.writeText(teacherUrl()).then(() => say("setMsg", "주소를 복사했습니다.", "ok"));
 $("newKey").onclick = async () => {
   if(!confirm("주소를 새로 만들면 지금 붙여 둔 QR은 더 이상 열리지 않습니다. 진행할까요?")) return;

@@ -79,14 +79,44 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=3"></script>
+<script src="config.js?v=4"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $ = id => document.getElementById(id);
-const KEY = new URLSearchParams(location.search).get("k") || "";
+const PARAMS = new URLSearchParams(location.search);
+const KEY = PARAMS.get("k") || "";
+const DEMO = PARAMS.has("demo");
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY,
   {auth:{persistSession:false, autoRefreshToken:false}});
 const DOW = ["일","월","화","수","목","금","토"];
+
+/* ---------- 체험 모드 (?demo=1): 가짜 데이터, 저장·알림 없음 ---------- */
+const DEMO_STATE = (() => {
+  const today = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Seoul"}).format(new Date());
+  const names = ["김가람","이나래","박다온","최라온","정마루","강바다","조새봄","윤아라","임하늘","한별","오솔","서누리"];
+  return {date: today, label: "체험", period: 3, teacher: "홍길동", next: null,
+    schedule: [{period:3, start:"10:50", end:"11:40", teacher:"홍길동"}],
+    students: names.map((name, i) => ({no: i + 1, name, excluded: false})),
+    neis: [{no: 4, slot: "3"}], marks: []};
+})();
+async function rpc(name, a){
+  if(!DEMO) return sb.rpc(name, a);
+  const st = DEMO_STATE;
+  if(name === "get_today") return {data: JSON.parse(JSON.stringify(st))};
+  const r = {period: st.period, absent: 0, present: 0, corrected: 0};
+  const neis = no => st.neis.some(x => x.no === no && x.slot === String(st.period));
+  const drop = (no, kind) => { const i = st.marks.findIndex(m => m.no === no && m.kind === kind); if(i >= 0){ st.marks.splice(i, 1); return true; } return false; };
+  const nm = no => `${no}번 ${(st.students.find(s => s.no === no) || {}).name || ""}`;
+  const L = {a: [], p: [], c: []};
+  for(const no of a.p_absent){ if(neis(no)){ if(drop(no, "present")){ r.corrected++; L.c.push(nm(no) + " → 다시 없음"); } } else { st.marks.push({no, period: st.period, kind: "absent"}); r.absent++; L.a.push(nm(no)); } }
+  for(const no of a.p_present){ if(neis(no)){ st.marks.push({no, period: st.period, kind: "present"}); r.present++; L.p.push(nm(no)); } else if(drop(no, "absent")){ r.corrected++; L.c.push(nm(no) + " → 출석"); } }
+  // 실제 휴대폰으로 [체험] 알림 (QR 주소의 키가 있을 때만)
+  if(KEY && (L.a.length || L.p.length || L.c.length)){
+    const {error} = await sb.rpc("demo_notify", {p_key: KEY, p_period: st.period, p_teacher: st.teacher, p_absent: L.a, p_present: L.p, p_corrected: L.c});
+    r.notified = !error;
+  }
+  return {data: r};
+}
 
 let S = null;              // 서버 상태
 const pend = new Set();    // 이번에 누른(상태를 뒤집은) 학생 번호
@@ -102,7 +132,7 @@ function errText(e){
 }
 
 async function load(){
-  const {data, error} = await sb.rpc("get_today", {p_key: KEY});
+  const {data, error} = await rpc("get_today", {p_key: KEY});
   if(error){ fail(errText(error)); return; }
   const prevPeriod = S ? S.period : undefined;
   S = data;
@@ -135,6 +165,7 @@ function render(){
     $("banner").className = "banner";
     $("banner").innerHTML = `<span class="per">${cur}교시</span><span class="who"></span><span class="time">${curInfo.start}~${curInfo.end}</span>`;
     $("banner").querySelector(".who").textContent = (S.teacher || "시간표 미등록") + (S.teacher ? " 선생님" : "");
+    if(DEMO) $("banner").insertAdjacentHTML("beforeend", `<span class="time" style="color:var(--red);font-weight:700">체험 모드 · 출결은 저장되지 않습니다</span>`);
     $("hint").textContent = "없는 학생의 줄을 누르고 [저장]을 눌러 주세요. 회색 / 는 담임이 미리 표시한 학생입니다. 교실에 있으면 눌러서 해제해 주세요. 변경이 없어도 [저장]을 누르면 확인으로 기록됩니다.";
     $("bar").classList.remove("hidden");
   }else{
@@ -187,7 +218,7 @@ $("save").onclick = async () => {
   const absent = [], present = [];
   for(const no of pend){ (stateOf(no).eff ? absent : present).push(no); }
   saving = true; updateBar(); $("save").textContent = "저장 중…";
-  const {data, error} = await sb.rpc("save_marks", {p_key: KEY, p_period: S.period, p_absent: absent, p_present: present});
+  const {data, error} = await rpc("save_marks", {p_key: KEY, p_period: S.period, p_absent: absent, p_present: present});
   saving = false; $("save").textContent = "저장";
   pend.clear();
   if(error){ toast(errText(error).replace(/<[^>]+>/g," "), 4000); await load(); return; }
@@ -195,11 +226,12 @@ $("save").onclick = async () => {
   if(data.absent) parts.push(`없음 ${data.absent}명`);
   if(data.present) parts.push(`출석 확인 ${data.present}명`);
   if(data.corrected) parts.push(`정정 ${data.corrected}명`);
-  toast(parts.length ? `저장했습니다 (${parts.join(", ")}). 담임선생님께 알림이 갔습니다.` : "확인했습니다 (변경 없음).");
+  toast(DEMO ? (parts.length ? `저장했습니다 (${parts.join(", ")}). ` + (data.notified ? "담임선생님께 [체험] 알림이 갔습니다." : "체험 모드라 알림은 보내지 않았습니다.") : "확인했습니다 (변경 없음).")
+             : (parts.length ? `저장했습니다 (${parts.join(", ")}). 담임선생님께 알림이 갔습니다.` : "확인했습니다 (변경 없음)."));
   await load();
 };
 
-if(!KEY) fail("주소가 올바르지 않습니다.<br>종이 출석부의 QR 코드를 다시 찍어 주세요.");
+if(!KEY && !DEMO) fail("주소가 올바르지 않습니다.<br>종이 출석부의 QR 코드를 다시 찍어 주세요.");
 else {
   load();
   setInterval(() => { if(!saving) load(); }, 30000);
