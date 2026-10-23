@@ -173,6 +173,9 @@ td.chg{background:var(--accent-soft);font-weight:700}
     <h2>요일별 마지막 교시 <span class="mute">(학교 공통)</span></h2>
     <div class="row" id="wmBox"></div>
     <div class="row super-only" style="margin-top:12px"><button class="btn" id="bellSave">시정 저장</button><span id="bellMsg"></span></div>
+    <h2>담임 시간 <span class="mute">(학교 공통 · 체크한 교시에는 각 반 담임이 들어감)</span></h2>
+    <div class="tbox" style="max-width:520px"><table id="homeTable"></table></div>
+    <div class="row super-only" style="margin-top:12px"><button class="btn" id="homeSave">담임 시간 저장</button><span id="homeMsg"></span></div>
   </section>
 
   <!-- 날짜별 변경 -->
@@ -211,6 +214,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
       <p style="margin-bottom:4px"><b>체험용 주소</b> <span class="mute">— 수업 시간과 상관없이 가짜 명단으로 열리고, 저장하면 [체험] 알림만 갑니다(출결 기록 없음).</span></p>
       <p class="url" id="demoUrl"></p>
       <div class="row"><button class="btn ghost" id="copyDemo">체험용 주소 복사</button></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">담임 선생님</h2>
+      <p class="mute" style="margin-top:0">담임 시간(기본: 금요일 5·6교시)에는 이 이름이 교과선생님 자리에 들어갑니다. 교과선생님 화면에서 고르는 이름과 똑같이 실명으로 넣으세요.</p>
+      <div class="row"><input id="homeroom" style="width:160px" placeholder="예: 김덕형"><button class="btn ghost" id="homeroomSave">저장</button><span id="homeroomMsg"></span></div>
     </div>
     <div class="card">
       <h2 style="margin-top:0">알림 (ntfy)</h2>
@@ -297,11 +305,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=11"></script>
+<script src="config.js?v=12"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=11"></script>
+<script src="neis-parse.js?v=12"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -418,12 +426,12 @@ function showTab(t){
 $("tabs").onclick = e => { const t = e.target.dataset.t; if(t) showTab(t); };
 
 /* ---------- 공통 데이터 ---------- */
-let BASE = {timetable:[], bell:[], wmax:[]};
+let BASE = {timetable:[], bell:[], wmax:[], home:[]};
 async function loadBase(){
-  const [tt, bell, wm] = await Promise.all([
+  const [tt, bell, wm, hm] = await Promise.all([
     sb.from("timetable").select("*").eq("class_id", CUR), sb.from("bell_default").select("*").order("period"),
-    sb.from("weekday_max").select("*").order("weekday")]);
-  BASE.timetable = must(tt); BASE.bell = must(bell); BASE.wmax = must(wm);
+    sb.from("weekday_max").select("*").order("weekday"), sb.from("homeroom_slot").select("*")]);
+  BASE.timetable = must(tt); BASE.bell = must(bell); BASE.wmax = must(wm); BASE.home = hm.error ? [] : (hm.data || []);
 }
 const defaultTeacher = (d, p) => (BASE.timetable.find(r => r.weekday === isoDow(d) && r.period === p) || {}).teacher || "";
 
@@ -480,6 +488,9 @@ function renderSetup(){
     {ok: !!s.qr_ok, title: "QR을 종이 출석부에 붙이기",
      text: `[설정·QR·명단] 탭에서 <b>QR 인쇄</b> → 교실 종이 출석부에 붙여 주세요. 교과선생님은 QR을 찍고 처음 한 번 자기 이름을 고르면, 본인 수업 시간에만 출결을 입력할 수 있습니다. 학생이 QR을 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다. 노출되면 [주소 새로 만들기].`,
      acts: `<button class="btn ghost sm" data-go="set" data-el="qr">QR 열기</button><button class="btn sm" id="suQr">${s.qr_ok ? "완료됨" : "붙였어요"}</button>`},
+    {ok: !!(c.homeroom || "").trim(), title: (c.homeroom || "").trim() ? `담임: ${esc(c.homeroom)}` : "담임 이름 입력",
+     text: `담임 시간(기본: 금요일 5·6교시)에는 담임이 교과선생님 자리에 들어가서, 그 시간 출결은 담임 휴대폰에서 체크합니다. [설정·QR·명단] 탭 → <b>담임 선생님</b>에 실명을 넣으세요.`,
+     acts: `<button class="btn ghost sm" data-go="set" data-el="homeroom">담임 이름 열기</button>`},
     {ok: I.comci || I.manualTT, title: I.comci ? "시간표: 컴시간 자동 연동 중" : (I.manualTT ? "시간표: 직접 입력한 시간표 사용 중" : "시간표 입력"),
      text: I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [날짜별 변경]에 직접 넣으면 바로 반영됩니다.`
                   : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [날짜별 변경]에서 그날만 바꿀 수 있습니다.`,
@@ -636,6 +647,9 @@ function renderTT(){
       const b = BASE.bell.find(x => x.period === p) || {};
       return `<tr><td>${p}교시</td><td><input type="time" data-bs="${p}" value="${t5(b.start_t)}" ${dis}></td><td><input type="time" data-be="${p}" value="${t5(b.end_t)}" ${dis}></td></tr>`;
     }).join("") + "</tbody>";
+  $("homeTable").innerHTML = `<thead><tr><th>교시</th>${[1,2,3,4,5].map(w => `<th>${DOW[w]}</th>`).join("")}</tr></thead><tbody>` +
+    Array.from({length:maxP}, (_, i) => i + 1).map(p => `<tr><td>${p}교시</td>` + [1,2,3,4,5].map(w =>
+      `<td><input type="checkbox" data-hw="${w}" data-hp="${p}" ${BASE.home.some(x => x.weekday === w && x.period === p) ? "checked" : ""} ${dis}></td>`).join("") + `</tr>`).join("") + "</tbody>";
   $("wmBox").innerHTML = [1,2,3,4,5].map(w => {
     const v = (BASE.wmax.find(x => x.weekday === w) || {}).max_period ?? 0;
     return `<label>${DOW[w]} <select data-wm="${w}" ${dis}>${Array.from({length:maxP + 1}, (_, i) => `<option value="${i}" ${i === v ? "selected" : ""}>${i ? i + "교시" : "수업 없음"}</option>`).join("")}</select></label>`;
@@ -686,6 +700,15 @@ $("ttSave").onclick = async () => {
     if(tt.length) must(await sb.from("timetable").insert(tt));
     await loadBase(); renderTT(); say("ttMsg", "저장했습니다.", "ok");
   }catch(e){ say("ttMsg", "저장 실패: " + e.message, "err"); }
+};
+$("homeSave").onclick = async () => {
+  if(!SUPER) return;
+  try{
+    const rows = [...document.querySelectorAll("[data-hw]")].filter(x => x.checked).map(x => ({weekday:+x.dataset.hw, period:+x.dataset.hp}));
+    must(await sb.from("homeroom_slot").delete().gte("weekday", 1));
+    if(rows.length) must(await sb.from("homeroom_slot").insert(rows));
+    await loadBase(); renderTT(); say("homeMsg", "저장했습니다.", "ok");
+  }catch(e){ say("homeMsg", "저장 실패: " + e.message, "err"); }
 };
 $("bellSave").onclick = async () => {
   if(!SUPER) return;
@@ -740,6 +763,7 @@ async function loadDay(){
   }catch(e){ say("dMsg", "불러오기 실패: " + e.message, "err"); }
 }
 function baseCell(s, d, p){
+  if(s && s.source === "homeroom") return `${esc(s.base || "")} <span class="pill">담임</span>`;
   if(s && s.source === "comci"){
     if(!s.base) return '<span class="mute">수업 없음</span>';
     return `${esc(s.base)} <span class="mute">${esc(s.subject || "")}</span>` + (s.changed ? ' <span class="pill">교체</span>' : "") + ' <span class="pill">컴시간</span>';
@@ -789,6 +813,7 @@ function loadSettings(){
   $("qr").innerHTML = ""; new QRCode($("qr"), {text:url, width:220, height:220, correctLevel:QRCode.CorrectLevel.M});
   $("topic").value = curClass().ntfy_topic || "";
   $("label").value = curClass().label || "";
+  $("homeroom").value = curClass().homeroom || ""; say("homeroomMsg", "");
   say("setMsg", ""); say("labelMsg", "");
   loadRoster();
 }
@@ -841,6 +866,11 @@ $("topicSave").onclick = async () => {
 $("testNotify").onclick = async () => {
   const {error} = await sb.rpc("admin_test_notify", {p_class: CUR});
   say("setMsg", error ? "실패: " + error.message : "테스트 알림을 보냈습니다. 휴대폰을 확인하세요.", error ? "err" : "ok");
+};
+$("homeroomSave").onclick = async () => {
+  const v = $("homeroom").value.trim();
+  try{ await updateClass({homeroom: v || null}); showTab("set"); say("homeroomMsg", v ? "저장했습니다." : "담임 이름을 비웠습니다. 담임 시간에도 원래 시간표를 따릅니다.", "ok"); }
+  catch(e){ say("homeroomMsg", "실패: " + e.message, "err"); }
 };
 $("labelSave").onclick = async () => {
   const v = $("label").value.trim();
