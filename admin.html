@@ -114,7 +114,7 @@ td.chg{background:var(--accent-soft);font-weight:700}
   <div class="tabs" id="tabs">
     <button data-t="board" class="on">출석부</button>
     <button data-t="upload">나이스 업로드</button>
-    <button data-t="tt">시간표·시정</button>
+    <button data-t="tt" class="hidden" id="ttTab">시간표·시정</button>
     <button data-t="day">날짜별 변경</button>
     <button data-t="set">설정·QR·명단</button>
     <button data-t="adm" class="hidden" id="admTab">반·관리자</button>
@@ -300,11 +300,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=13"></script>
+<script src="config.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=13"></script>
+<script src="neis-parse.js?v=14"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -375,6 +375,7 @@ async function boot(){
   $("who").textContent = session.user.email + (SUPER ? " · 전체 관리자" : "");
   $("admTab").classList.toggle("hidden", !SUPER);
   $("comciTab").classList.toggle("hidden", !SUPER);
+  $("ttTab").classList.toggle("hidden", !SUPER);
   document.querySelectorAll(".super-only").forEach(el => el.classList.toggle("hidden", !SUPER));
   $("bDate").value = kstToday(); $("dDate").value = kstToday();
   await loadClasses();
@@ -484,9 +485,10 @@ function renderSetup(){
      text: `[설정·QR·명단] 탭에서 <b>QR 인쇄</b> → 교실 종이 출석부에 붙여 주세요. 교과선생님은 QR을 찍고 처음 한 번 자기 이름을 고르면, 본인 수업 시간에만 출결을 입력할 수 있습니다. 학생이 QR을 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다. 노출되면 [주소 새로 만들기].`,
      acts: `<button class="btn ghost sm" data-go="set" data-el="qr">QR 열기</button><button class="btn sm" id="suQr">${s.qr_ok ? "완료됨" : "붙였어요"}</button>`},
     {ok: I.comci || I.manualTT, title: I.comci ? "시간표: 컴시간 자동 연동 중" : (I.manualTT ? "시간표: 직접 입력한 시간표 사용 중" : "시간표 입력"),
-     text: I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [날짜별 변경]에 직접 넣으면 바로 반영됩니다.`
-                  : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [날짜별 변경]에서 그날만 바꿀 수 있습니다.`,
-     acts: `<button class="btn ghost sm" data-go="tt">시간표 열기</button>`},
+     text: SUPER ? (I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [날짜별 변경]에 직접 넣으면 바로 반영됩니다.`
+                         : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [날짜별 변경]에서 그날만 바꿀 수 있습니다.`)
+                 : `시간표는 매일 아침 자동으로 받아 옵니다. 교체·대강이 생기면 [날짜별 변경]에서 그날 그 교시 선생님 이름을 넣으세요.`,
+     acts: SUPER ? `<button class="btn ghost sm" data-go="tt">시간표 열기</button>` : `<button class="btn ghost sm" data-go="day">날짜별 변경 열기</button>`},
     {ok: !!s.last_upload, title: "매일: 나이스 일일출석부 올리기",
      text: `아침에(출결 변동이 있으면 중간에도) 나이스 → <b>학급담임 → 학적 → 출결관리 → 일일출결관리 → 출력 → 디스크 모양 아이콘 → XLS data</b>로 저장 → [나이스 업로드] 탭에 올리기. 미리 표시된 "/"는 교과선생님 화면에 그대로 보이고, 새로 찍힌 "/"만 알림이 옵니다.` + (s.last_upload ? `<br>마지막 업로드: ${fmtDate(s.last_upload)}` : ""),
      acts: `<button class="btn ghost sm" data-go="upload">업로드 열기</button>`},
