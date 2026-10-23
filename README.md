@@ -52,7 +52,7 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
 ---
 
 ## 컴시간알리미 연동 (전체 관리자, 한 번)
-전체 학년·반의 이번 주·다음 주 시간표(수업 교환 반영)를 평일 아침 07:10에 하루 한 번 자동으로 받아 옵니다. 컴시간알리미 프로그램을 켜 둘 필요는 없습니다(GitHub 서버가 컴시간 공개 시간표를 읽음).
+전체 학년·반의 이번 주·다음 주 시간표(수업 교환 반영)를 평일 아침 07:30에 하루 한 번 자동으로 받아 옵니다. 컴시간알리미 프로그램을 켜 둘 필요는 없습니다(GitHub 서버가 컴시간 공개 시간표를 읽음).
 
 1. **Supabase 비밀 키를 GitHub에 등록**
    - Supabase → **Project Settings → API Keys** → **Secret keys**의 키 복사 (`sb_secret_…`, 없으면 legacy `service_role` 키)

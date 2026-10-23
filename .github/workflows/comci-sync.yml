@@ -3,7 +3,7 @@ name: 컴시간 시간표 동기화
 on:
   schedule:
     # GitHub 시간은 UTC 기준 (한국 = UTC+9)
-    - cron: "10 22 * * 0-4"      # 한국 월~금 07:10 (하루 한 번)
+    - cron: "30 22 * * 0-4"      # 한국 월~금 07:30 (하루 한 번)
   workflow_dispatch:              # Actions 탭에서 [Run workflow] 로 바로 실행
 
 concurrency:
