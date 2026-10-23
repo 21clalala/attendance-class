@@ -239,7 +239,14 @@ td.chg{background:var(--accent-soft);font-weight:700}
         <label class="row" style="gap:4px"><input type="checkbox" id="cOnlyEmpty"> 이름 안 넣은 선생님만</label>
         <span class="mute" id="cCount"></span>
       </div>
-      <details style="margin-bottom:10px"><summary class="mute" style="cursor:pointer">한꺼번에 붙여 넣기</summary>
+      <div class="card" style="background:var(--head);margin-bottom:10px">
+        <b>이름 목록으로 자동 채우기</b>
+        <p class="mute" style="margin:4px 0 8px">교직원 명단, 메신저 주소록, 학교 홈페이지 교직원 소개 등 선생님 이름이 들어 있는 글을 그대로 붙여 넣으세요. 순서·형식은 상관없고, 컴시간 표기의 앞 두 글자(예: 김영*)로 맞춰 채웁니다.</p>
+        <textarea id="cNames" placeholder="김영대 국어&#10;최소정, 김가혜 ..." style="width:100%;min-height:120px"></textarea>
+        <div class="row" style="margin-top:6px"><button class="btn sm" id="cMatch">자동으로 채우기</button><span id="cMatchMsg"></span></div>
+        <div id="cAmbig" class="mute" style="margin-top:6px"></div>
+      </div>
+      <details style="margin-bottom:10px"><summary class="mute" style="cursor:pointer">번호로 붙여 넣기 (07 김영대)</summary>
         <textarea id="cPaste" placeholder="07 김영대&#10;08 최소정&#10;09 김가혜" style="width:100%;min-height:140px;margin-top:8px"></textarea>
         <div class="row" style="margin-top:6px"><button class="btn ghost sm" id="cApplyPaste">표에 채우기</button><span class="mute">한 줄에 "번호 이름". 채운 뒤 아래 [이름 저장]을 누르세요.</span></div>
       </details>
@@ -270,11 +277,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=9"></script>
+<script src="config.js?v=10"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=9"></script>
+<script src="neis-parse.js?v=10"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -790,6 +797,30 @@ $("cOnlyEmpty").onchange = () => { collectNames(); renderTeacherNames(); };
 function collectNames(){
   document.querySelectorAll("[data-ti]").forEach(i => { const t = CT.find(x => x.idx === +i.dataset.ti); if(t) t._new = i.value.trim(); });
 }
+// 이름 목록 → 앞 두 글자(가려지지 않은 부분)로 매칭
+$("cMatch").onclick = () => {
+  collectNames();
+  const tokens = [...new Set($("cNames").value.split(/[^가-힣]+/).filter(t => t.length >= 2))];
+  let filled = 0, kept = 0; const amb = [], none = [];
+  for(const t of CT){
+    const web = (t.web_name || "").trim();
+    const prefix = web.replace(/\*+$/, "");
+    if(!web.includes("*") || prefix.length < 1) continue;
+    const cands = [...new Set(tokens.filter(x => x.startsWith(prefix) && x.length > prefix.length).map(x => x.slice(0, prefix.length + 1)))];
+    const current = (t._new !== undefined ? t._new : (t.name || "")).trim();
+    if(cands.length === 1){
+      if(current && current !== cands[0]){ kept++; continue; }      // 이미 다른 이름이 있으면 그대로
+      if(!current){ t._new = cands[0]; filled++; }
+    }else if(cands.length > 1){ if(!current) amb.push(`${t.idx}번 ${web}(${t.subjects || ""}) → ${cands.join(" / ")}`); }
+    else if(!current) none.push(`${t.idx}번 ${web}`);
+  }
+  $("cOnlyEmpty").checked = false; renderTeacherNames();
+  CT.forEach(t => { if(t._new !== undefined){ const i = document.querySelector(`[data-ti="${t.idx}"]`); if(i) i.value = t._new; } });
+  say("cMatchMsg", `${filled}명 채움` + (amb.length ? ` · 후보가 여럿 ${amb.length}명` : "") + (none.length ? ` · 목록에 없음 ${none.length}명` : "") + (kept ? ` · 이미 넣은 이름 유지 ${kept}명` : "") + ". 확인 후 아래 [이름 저장]을 누르세요.", filled ? "ok" : "warn");
+  $("cAmbig").innerHTML = (amb.length ? `<b>직접 골라 주세요:</b><br>${amb.map(esc).join("<br>")}` : "") +
+    (none.length ? `${amb.length ? "<br>" : ""}<b>목록에서 못 찾음:</b> ${none.map(esc).join(", ")}` : "");
+};
+
 $("cApplyPaste").onclick = () => {
   collectNames();
   let n = 0, miss = [];
