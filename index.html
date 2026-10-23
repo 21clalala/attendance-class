@@ -54,6 +54,11 @@ tr.ex td.nm::after{content:" 제외";font-size:11px;font-weight:400}
   padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:5}
 .bar .in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px}
 .bar .sum{flex:1;font-weight:700;font-size:16px}
+.count{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:10px}
+.count .big{font-size:15px;font-weight:700}
+.count .big b{font-size:28px;color:var(--accent);margin:0 2px}
+.count .detail{color:var(--mute);font-size:14px}
+.bar .now{font-weight:800;color:var(--accent);white-space:nowrap}
 button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .btn{background:var(--accent);color:#fff;padding:13px 26px;font-weight:700;font-size:17px}
 .btn:disabled{opacity:.4;cursor:default}
@@ -80,18 +85,20 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
   <div class="pick hidden" id="pick"></div>
   <div id="main" class="hidden">
     <div class="banner" id="banner"></div>
+    <div class="count hidden" id="count"></div>
     <p class="hint" id="hint"></p>
     <div class="tablebox"><table id="tbl"></table></div>
   </div>
   <div class="msg" id="msg">불러오는 중…</div>
 </div>
 <div class="bar hidden" id="bar"><div class="in">
+  <div class="now" id="now"></div>
   <div class="sum" id="sum">변경 없음</div>
   <button class="btn" id="save" disabled>저장</button>
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=7"></script>
+<script src="config.js?v=8"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -277,7 +284,34 @@ function toggle(no){
   render();
 }
 
+// 재실 인원: 재적 - 위탁 - 자습반 - "/" (저장 전 표시 포함)
+const isStudy = st => /자습/.test(st.tag || "");
+function headcount(){
+  const c = {enrolled: S.students.length, ex: 0, study: 0, absent: 0};
+  for(const st of S.students){
+    if(st.excluded){ c.ex++; continue; }
+    if(isStudy(st)){ c.study++; continue; }
+    if(stateOf(st.no).eff) c.absent++;
+  }
+  c.present = c.enrolled - c.ex - c.study - c.absent;
+  return c;
+}
+function updateCount(){
+  const on = !!(S && S.period && S.teacher === ME);
+  $("count").classList.toggle("hidden", !on);
+  $("now").textContent = "";
+  if(!on) return;
+  const c = headcount();
+  const parts = [`재적 ${c.enrolled}`];
+  if(c.ex) parts.push(`위탁 ${c.ex}`);
+  if(c.study) parts.push(`자습반 ${c.study}`);
+  parts.push(`없음 ${c.absent}`);
+  $("count").innerHTML = `<span class="big">재실 <b>${c.present}</b>명</span><span class="detail">${parts.join(" · ")}</span>`;
+  $("now").textContent = `재실 ${c.present}명`;
+}
+
 function updateBar(){
+  updateCount();
   let a = 0, p = 0;
   if(S && S.period && S.teacher === ME) for(const no of pend){ stateOf(no).eff ? a++ : p++; }
   $("sum").textContent = (a||p) ? [a?`없음으로 ${a}명`:"", p?`출석으로 ${p}명`:""].filter(Boolean).join(" · ") : "변경 없음";
