@@ -5,64 +5,94 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>출결 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f3f5f8; --card:#fff; --ink:#1f2633; --mute:#6b7380; --line:#dfe3ea; --head:#f7f8fb;
-  --accent:#2f5bea; --accent-soft:#e8eefe; --red:#d93036; --red-soft:#fdeced; --lock:#eceef2; --ok:#1d8a4e; --warn:#b26b00;
+  --bg:#f6f7f5; --card:#fff; --ink:#1f2427; --mute:#5b6168; --line:#e3e6e1; --line2:#eceeea; --head:#fafbf9;
+  --accent:#0f766e; --accent-ink:#0b5c56; --on-accent:#fff; --accent-soft:#effaf8; --accent-soft2:#e6f7f4; --accent-line:#b7e2db;
+  --red:#c92a2a; --red-soft:#fff0f0; --red-line:#f3c4c4; --lock:#f1f2ef; --ok:#0f766e; --warn:#9a5b00;
+  --amber-bg:#fff8e6; --amber-line:#f0d48a; --amber-ink:#7a5200;
 }
 @media (prefers-color-scheme: dark){
-  :root{ --bg:#121419; --card:#1b1e25; --ink:#e7e9ee; --mute:#9aa1ad; --line:#2d313b; --head:#20242c;
-         --accent:#7393ff; --accent-soft:#232c45; --red:#ff6b70; --red-soft:#3a1f22; --lock:#262a33; --ok:#3ccf7d; --warn:#f0a940; }
+  :root{ --bg:#111413; --card:#1a1e1d; --ink:#e7ebe9; --mute:#9aa3a0; --line:#2c3330; --line2:#252b29; --head:#202624;
+         --accent:#3cc4b4; --accent-ink:#6fd8cb; --on-accent:#07201d; --accent-soft:#16302d; --accent-soft2:#173a36; --accent-line:#245a54;
+         --red:#ff7b7b; --red-soft:#3a1f22; --red-line:#6b3236; --lock:#232927; --ok:#3cc4b4; --warn:#f0b35a;
+         --amber-bg:#3a2e12; --amber-line:#6b5520; --amber-ink:#f3d48a; }
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px}
-.wrap{max-width:1180px;margin:0 auto;padding:16px}
-h1{font-size:20px;margin:0}
-h2{font-size:16px;margin:22px 0 10px}
-.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.head .sp{flex:1}
-#cls{font-size:17px;font-weight:700;padding:6px 10px}
-.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:16px}
-.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;font:inherit;color:var(--mute);cursor:pointer;font-weight:600}
-.tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.5}
+a{color:var(--accent)}
+h1{font-size:24px;margin:0;font-weight:700;letter-spacing:-.5px}
+h2{font-size:17px;margin:22px 0 10px;font-weight:700;letter-spacing:-.2px}
+.card h2:first-child,.card>h2{margin-top:0}
+
+/* 상단 메뉴 */
+.topbar{background:var(--card);border-bottom:1px solid var(--line);position:relative;z-index:5}
+.topbar .inner{max-width:1240px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;padding:12px 0}
+.brand .logo{font-size:17px;font-weight:700;letter-spacing:-.3px;white-space:nowrap}
+#cls{appearance:none;-webkit-appearance:none;padding:6px 30px 6px 14px;border-radius:999px;border:1px solid var(--accent-line);background:var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center;color:var(--accent);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.tabs{display:flex;gap:20px;flex:1 1 auto;flex-wrap:wrap;align-items:stretch}
+.tabs>button,.tabs summary{background:none;border:0;border-bottom:3px solid transparent;padding:17px 2px 15px;font:inherit;font-size:14px;color:var(--mute);cursor:pointer;font-weight:600;white-space:nowrap}
+.tabs>button:hover,.tabs summary:hover{color:var(--ink)}
+.tabs>button.on,.more:has(button.on)>summary{color:var(--accent);border-bottom-color:var(--accent)}
+.more{position:relative}
+.more summary{list-style:none}
+.more summary::-webkit-details-marker{display:none}
+.more summary::after{content:" ▾";font-size:11px}
+.more .menu{position:absolute;right:0;top:100%;min-width:170px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:6px;display:flex;flex-direction:column;z-index:10}
+.more .menu button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:8px;font:inherit;font-size:14px;color:var(--ink);cursor:pointer}
+.more .menu button:hover{background:var(--head)}
+.more .menu button.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.user{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--mute)}
+.wrap{max-width:1240px;margin:0 auto;padding:24px}
+
+/* 공통 */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+input,select,textarea{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-line);border-color:var(--accent)}
 input:disabled,select:disabled{opacity:.6}
 input[type=time]{padding:6px 6px}
-button.btn{font:inherit;cursor:pointer;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:9px 16px;font-weight:700}
-button.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
-button.btn.danger{background:transparent;color:var(--red);border:1px solid var(--line)}
-button.btn.sm{padding:5px 10px;font-size:13px}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent);width:16px;height:16px}
+button.btn{font:inherit;cursor:pointer;border:1px solid var(--accent);border-radius:10px;background:var(--accent);color:var(--on-accent);padding:9px 16px;font-weight:600;font-size:14px}
+button.btn:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+button.btn.ghost{background:var(--card);color:var(--accent);border:1px solid var(--line)}
+button.btn.ghost:hover{background:var(--accent-soft);border-color:var(--accent-line)}
+button.btn.danger{background:var(--card);color:var(--red);border:1px solid var(--line)}
+button.btn.danger:hover{background:var(--red-soft);border-color:var(--red-line)}
+button.btn.sm{padding:5px 10px;font-size:13px;border-radius:8px}
 button.btn:disabled{opacity:.45;cursor:default}
 .mute{color:var(--mute);font-size:13px}
 .warn{color:var(--warn);font-weight:600}
 .ok{color:var(--ok);font-weight:600}
 .err{color:var(--red);font-weight:600}
-.tbox{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.tbox{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 table{border-collapse:collapse;width:100%}
-th,td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:center;white-space:nowrap}
-th{background:var(--head);color:var(--mute);font-size:13px;font-weight:600;position:sticky;top:0}
+th,td{border-bottom:1px solid var(--line2);padding:8px 6px;text-align:center;white-space:nowrap}
+th{background:var(--head);color:var(--mute);font-size:12px;font-weight:600;position:sticky;top:0;z-index:1}
 td.l{text-align:left}
-td.note{text-align:left;white-space:normal;min-width:220px;font-size:13px}
-td.s{width:52px;font-size:17px}
+td.note{text-align:left;white-space:normal;min-width:200px;font-size:12px;color:var(--mute)}
+td.s{width:48px;font-size:16px;font-weight:700;color:#6b7280}
+td.s.cur,th.cur{background:var(--accent-soft)}
 td.s.t{color:var(--red);font-weight:800;background:var(--red-soft);cursor:pointer}
 td.s.both{font-weight:800}
-td.s.p{color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;background:var(--accent-soft)}
+td.s.p{color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;background:var(--accent-soft2)}
 tr.ex td{color:var(--mute);background:var(--lock)}
-.legend span{display:inline-block;margin-right:14px}
-.sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid var(--line)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute)}
+.legend b{font-size:14px}
 .grid-tt input{width:110px}
 .chip{display:inline-flex;align-items:center;gap:4px;background:var(--head);border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 10px;margin:2px;font-size:13px}
 .chip button{background:none;border:0;color:var(--red);cursor:pointer;font-size:14px;padding:0 6px}
 td.chg{background:var(--accent-soft);font-weight:700}
 .wk td{min-width:90px;font-size:13px;line-height:1.35}
 .wk td small{color:var(--mute)}
-.pill{display:inline-block;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent)}
+.pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent)}
 .pill.bad{background:var(--red-soft);color:var(--red)}
 .tnames input{width:120px}
-.todaybar{background:#fff4d6;color:#7a5200;border:1px solid #f0d48a;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-@media (prefers-color-scheme: dark){ .todaybar{background:#3a2e12;color:#f3d48a;border-color:#6b5520} }
+.todaybar{background:var(--amber-bg);color:var(--amber-ink);border:1px solid var(--amber-line);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .todaybar .t{flex:1;min-width:240px}
 .setup h2{margin:0;font-size:16px}
 .setup .item{display:flex;gap:10px;padding:10px 0;border-top:1px dashed var(--line);align-items:flex-start}
@@ -70,19 +100,85 @@ td.chg{background:var(--accent-soft);font-weight:700}
 .setup .ck{font-size:18px;line-height:1.2;width:22px;flex:none}
 .setup .body{flex:1;min-width:0}
 .setup .body b{display:block;margin-bottom:2px}
-.setup .body .mute{line-height:1.55}
 .setup .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .setup.done .item{display:none}
 .flash{animation:flash 1.6s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 .hidden{display:none!important}
-.login{max-width:380px;margin:80px auto}
-.login input{width:100%;margin-bottom:10px}
-.linkish{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0;margin-top:10px}
-#qr{background:#fff;padding:12px;display:inline-block;border-radius:8px}
-.url{word-break:break-all;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--head);padding:8px;border-radius:6px}
-.log{font-size:13px;max-height:260px;overflow:auto}
-.log div{padding:3px 0;border-bottom:1px dashed var(--line)}
+.login{max-width:400px;margin:90px auto;padding:28px}
+.login input{width:100%;margin-bottom:10px;padding:11px 12px}
+.linkish{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0;font-weight:600}
+.login .linkish{margin-top:12px}
+#qr{background:#fff;padding:12px;display:inline-block;border-radius:10px;border:1px solid var(--line)}
+.url{word-break:break-all;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--head);padding:8px 10px;border-radius:8px}
+
+/* 오늘 출석부 */
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.pagehead .sub{display:block;margin-top:2px;font-size:14px;color:var(--mute)}
+.tl{list-style:none;margin:0 0 14px;padding:0;display:flex;gap:8px;overflow-x:auto}
+.tl li{flex:1 1 0;min-width:108px;border-radius:12px;padding:10px 12px;border:1px solid var(--line);background:var(--card)}
+.tl .lb{font-size:12px;font-weight:700;opacity:.85}
+.tl .tc{margin-top:3px;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .st{margin-top:3px;font-size:12px;font-weight:600}
+.tl .done .st{color:var(--accent)}
+.tl .now{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.tl .next{background:var(--head);color:var(--mute)}
+.tl .miss{background:var(--amber-bg);border-color:var(--amber-line)}
+.tl .miss .st{color:var(--amber-ink)}
+.countbar{display:flex;align-items:center;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 20px;margin-bottom:16px}
+.countbar .big{display:flex;align-items:baseline;gap:8px}
+.countbar .big b{font-size:32px;font-weight:700;color:var(--accent);letter-spacing:-1px;line-height:1}
+.countbar .pills{display:flex;gap:8px;flex-wrap:wrap}
+.countbar .pills span{background:var(--head);border-radius:10px;padding:7px 12px;font-size:12px;color:var(--mute)}
+.countbar .pills span b{font-size:16px;color:var(--ink);margin-left:6px}
+.countbar .pills span.red{background:var(--red-soft)}
+.countbar .pills span.red b{color:var(--red)}
+.split{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.tablecard{flex:999 1 640px;min-width:0;padding:0;overflow:hidden}
+.tablecard .hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.tablecard .hd h2{margin:0;font-size:15px}
+.tablecard .tscroll{overflow-x:auto}
+.tablecard td{height:40px}
+.rail{flex:1 1 260px;padding:18px}
+.rail h2{margin:0 0 8px;font-size:14px}
+.log{font-size:13px;max-height:520px;overflow:auto;color:var(--mute)}
+.log div{padding:6px 0;border-bottom:1px solid var(--line2);line-height:1.5}
+.log div:last-child{border-bottom:0}
+.log b.a{color:var(--red)} .log b.p{color:var(--ok)} .log b.c{color:var(--mute)}
+.log .tm{color:var(--mute);font-size:12px;margin-left:4px}
+
+/* 업로드 */
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--accent-line);border-radius:14px;background:var(--accent-soft);padding:36px 16px;text-align:center;cursor:pointer;color:var(--accent-ink)}
+.drop:hover,.drop.over{background:var(--accent-soft2);border-color:var(--accent)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.path{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px;font-weight:600;margin:6px 0 14px}
+.path span{padding:5px 9px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink)}
+.path span.last{background:var(--accent);color:var(--on-accent)}
+.path i{font-style:normal;color:var(--mute)}
+
+/* 도움말 */
+.help{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.help .toc{flex:1 1 200px;max-width:240px;padding:12px}
+.help .toc a{display:block;padding:8px 12px;border-radius:8px;font-size:14px;color:var(--mute);text-decoration:none}
+.help .toc a:hover{background:var(--head);color:var(--ink)}
+.help .body{flex:999 1 560px;min-width:0}
+.help .card{padding:22px 24px}
+.help li{margin:2px 0}
+.step{display:flex;gap:14px;margin-bottom:14px}
+.step .n{flex:none;width:28px;height:28px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.keys div{border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--mute)}
+.keys b{display:block;font-size:18px}
+details.faq{border-top:1px solid var(--line2);padding:12px 0}
+details.faq summary{cursor:pointer;font-weight:600}
+details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
+
+@media (max-width:640px){
+  .wrap{padding:16px}
+  .topbar .inner{padding:0 16px;gap:8px 18px}
+  .tabs{gap:14px}
+  .tabs>button,.tabs summary{padding:12px 2px 10px}
+}
 @media print{
   body *{visibility:hidden}
   #printArea,#printArea *{visibility:visible}
@@ -104,22 +200,26 @@ td.chg{background:var(--accent-soft);font-weight:700}
   <p class="mute hidden" id="signupHint">전체 관리자가 등록한 이메일만 계정을 만들 수 있습니다. 비밀번호는 6자 이상.</p>
 </div>
 
-<div class="wrap hidden" id="app">
-  <div class="head">
-    <select id="cls"></select>
-    <h1>출결 관리</h1><span class="sp"></span>
-    <span class="mute" id="who"></span>
-    <button class="btn ghost" id="logout">로그아웃</button>
-  </div>
-  <div class="tabs" id="tabs">
-    <button data-t="board" class="on">출석부</button>
-    <button data-t="upload">나이스 업로드</button>
-    <button data-t="tt" class="hidden" id="ttTab">시간표·시정</button>
-    <button data-t="day">날짜별 변경</button>
-    <button data-t="set">설정·QR·명단</button>
-    <button data-t="adm" class="hidden" id="admTab">반·관리자</button>
-    <button data-t="comci" class="hidden" id="comciTab">컴시간</button>
-  </div>
+<div class="hidden" id="app">
+  <header class="topbar"><div class="inner">
+    <div class="brand"><span class="logo">출결 관리</span><select id="cls" aria-label="반 선택"></select></div>
+    <nav class="tabs" id="tabs" aria-label="주 메뉴">
+      <button data-t="board" class="on">오늘 출석부</button>
+      <button data-t="upload">나이스 업로드</button>
+      <button data-t="day">시간표 변경</button>
+      <button data-t="set">우리 반 설정</button>
+      <button data-t="help">사용 도움말</button>
+      <details class="more hidden" id="schoolMenu"><summary>학교 관리</summary>
+        <div class="menu">
+          <button data-t="tt" class="hidden" id="ttTab">시간표·시정</button>
+          <button data-t="adm" class="hidden" id="admTab">반·관리자</button>
+          <button data-t="comci" class="hidden" id="comciTab">컴시간 연동</button>
+        </div>
+      </details>
+    </nav>
+    <div class="user"><span id="who"></span><button class="linkish" id="logout">로그아웃</button></div>
+  </div></header>
+  <div class="wrap">
 
   <div class="card hidden" id="noClass">
     <p style="margin:0">아직 관리할 반이 없습니다. <span id="noClassHint"></span></p>
@@ -133,25 +233,34 @@ td.chg{background:var(--accent-soft);font-weight:700}
       <button class="btn" data-go="upload">업로드하기</button>
     </div>
     <div class="card setup hidden" id="setupCard"></div>
-    <div class="row" style="margin-bottom:10px">
-      <input type="date" id="bDate">
-      <button class="btn ghost" id="bToday">오늘</button>
-      <span class="mute" id="bInfo"></span>
+    <div class="pagehead">
+      <div><h1 id="bTitle">오늘 출석부</h1><span class="sub" id="bInfo"></span></div>
+      <div class="row"><input type="date" id="bDate" aria-label="날짜"><button class="btn ghost" id="bToday">오늘</button></div>
     </div>
-    <p class="mute legend">
-      <span><i class="sw" style="background:var(--card)"></i>"/" = 나이스 업로드</span>
-      <span><i class="sw" style="background:var(--red-soft);border-color:var(--red)"></i>빨간 "/" = 교과선생님 입력</span><span><i class="sw" style="background:var(--accent-soft)"></i>"출석" = 교과선생님이 나이스 / 해제</span><span>(교과선생님 표시는 누르면 삭제)</span>
-    </p>
-    <div class="tbox"><table id="bTable"></table></div>
-    <h2>교과선생님 입력 기록</h2>
-    <div class="card log" id="bLog"></div>
+    <ol class="tl" id="bTimeline" aria-label="교시별 체크 현황"></ol>
+    <div class="countbar" id="bCount"></div>
+    <div class="split">
+      <div class="card tablecard">
+        <div class="hd"><h2>학생별 출결</h2>
+          <div class="legend"><span><b>/</b> 나이스</span><span><b style="color:var(--red)">/</b> 교과선생님</span><span><b style="color:var(--ok);font-size:12px">출석</b> 나이스 / 해제</span><span>교과선생님 표시는 눌러서 삭제</span></div>
+        </div>
+        <div class="tscroll"><table id="bTable"></table></div>
+      </div>
+      <aside class="card rail" aria-label="최근 입력"><h2>최근 입력</h2><div class="log" id="bLog"></div></aside>
+    </div>
   </section>
 
   <!-- 업로드 -->
   <section data-p="upload" class="hidden">
     <div class="card">
-      <p style="margin-top:0"><b class="clsName"></b>의 나이스 <b>일일출석부</b> 엑셀(xls/xlsx)을 선택하세요. 파일의 날짜에 그대로 적용됩니다. 같은 날짜로 다시 올리면 그날 나이스 표시는 새 파일 내용으로 바뀝니다(교과선생님 입력은 유지).</p>
-      <input type="file" id="uFile" accept=".xls,.xlsx">
+      <h2><span class="clsName"></span> 나이스 일일출석부 올리기</h2>
+      <div class="path" aria-label="나이스 메뉴 경로"><span>나이스</span><i>→</i><span>학급담임</span><i>→</i><span>학적</span><i>→</i><span>출결관리</span><i>→</i><span>일일출결관리</span><i>→</i><span>출력</span><i>→</i><span>디스크 모양</span><i>→</i><span class="last">XLS data</span></div>
+      <label class="drop" id="uDrop" for="uFile">
+        <b>파일을 여기로 끌어다 놓거나 눌러서 선택</b>
+        <span class="mute">xls · xlsx · 파일의 날짜에 그대로 적용됩니다</span>
+        <input type="file" id="uFile" accept=".xls,.xlsx">
+      </label>
+      <p class="mute" style="margin:10px 0 0">같은 날짜로 다시 올리면 그날 나이스 표시가 새 파일 내용으로 바뀝니다. 교과선생님 입력은 그대로 남습니다.</p>
       <div id="uResult" style="margin-top:12px"></div>
     </div>
     <div class="tbox hidden" id="uPrevBox"><table id="uPrev"></table></div>
@@ -237,6 +346,59 @@ td.chg{background:var(--accent-soft);font-weight:700}
     </div>
   </section>
 
+  <!-- 사용 도움말 -->
+  <section data-p="help" class="hidden">
+    <div class="pagehead"><div><h1>사용 도움말</h1><span class="sub">교과선생님이 수업 시간에 QR로 출결을 체크하면, 새로 없는 학생이 생길 때 담임선생님 휴대폰으로 알림이 옵니다.</span></div></div>
+    <div class="help">
+      <nav class="card toc" aria-label="도움말 목차">
+        <a href="#h1">1. 처음 한 번 설정</a><a href="#h2">2. 매일 할 일</a><a href="#h3">3. 시간표 변경</a>
+        <a href="#h4">4. 교과선생님 사용법</a><a href="#h5">5. 출석부 읽는 법</a><a href="#h6">6. 자주 묻는 질문</a>
+      </nav>
+      <div class="body">
+        <div class="card" id="h1"><h2>1. 처음 한 번 설정</h2>
+          <div class="step"><span class="n">1</span><div><b>학생 명단 확인</b><br><span class="mute" style="font-size:14px">[우리 반 설정] → 학생 명단. 한 줄에 "번호 이름". 자습반 학생은 이름 뒤에 <b>(자습반)</b>, 위탁 학생은 <b>(위탁)</b>을 붙이고 저장하세요. 둘 다 재실 인원에서 빠집니다. 나이스 파일을 처음 올리면 명단이 자동으로 채워집니다.</span></div></div>
+          <div class="step"><span class="n">2</span><div><b>휴대폰으로 알림 받기</b><br><span class="mute" style="font-size:14px">App Store 또는 Play 스토어에서 <b>ntfy</b> 설치 → 앱에서 <b>+</b> → [우리 반 설정]에 있는 토픽 이름 입력 → Subscribe → [테스트 알림]을 눌러 알림이 오는지 확인하세요.</span></div></div>
+          <div class="step" style="margin-bottom:0"><span class="n">3</span><div><b>QR을 종이 출석부에 붙이기</b><br><span class="mute" style="font-size:14px">[우리 반 설정] → QR 인쇄. 학생이 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다.</span></div></div>
+        </div>
+        <div class="card" id="h2"><h2>2. 매일 할 일 — 나이스 일일출석부 올리기</h2>
+          <p class="mute" style="font-size:14px;margin:0">아침에 한 번, 출결 변동이 생기면 중간에도 올리세요. 결석생이 없는 날도 올려야 업로드한 것으로 표시됩니다.</p>
+          <div class="path"><span>나이스</span><i>→</i><span>학급담임</span><i>→</i><span>학적</span><i>→</i><span>출결관리</span><i>→</i><span>일일출결관리</span><i>→</i><span>출력</span><i>→</i><span>디스크 모양</span><i>→</i><span class="last">XLS data</span></div>
+          <p class="mute" style="font-size:14px;margin:0">받은 파일을 [나이스 업로드]에 끌어다 놓으면 끝입니다. 다른 반 파일이면 경고가 뜨고 적용되지 않습니다.</p>
+        </div>
+        <div class="card" id="h3"><h2>3. 시간표 변경 (교체·대강·단축수업)</h2>
+          <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
+            <li>시간표와 수업 교환은 매일 아침 컴시간알리미에서 자동으로 받아 옵니다.</li>
+            <li>급한 교체·대강: [시간표 변경] → 날짜 선택 → 그 교시 <b>교체·대강</b> 칸에 선생님 이름 → 저장.</li>
+            <li>단축수업: 같은 화면에서 시각을 고치거나 수업 없는 교시의 체크를 끄고 저장. 우리 반에만 적용됩니다.</li>
+            <li>담임 시간(기본: 금요일 5·6교시)에는 담임선생님 휴대폰에서 체크합니다.</li>
+          </ul>
+        </div>
+        <div class="card" id="h4"><h2>4. 교과선생님 사용법 (전달용)</h2>
+          <ol class="mute" style="font-size:14px;margin:0;padding-left:20px">
+            <li>종이 출석부의 QR을 휴대폰으로 찍습니다.</li>
+            <li>처음 한 번만 본인 이름을 고릅니다. 잘못 골랐으면 오른쪽 위 [변경].</li>
+            <li>본인 수업 시간에만 그 교시 칸이 열립니다.</li>
+            <li>없는 학생 줄을 누르고 [저장]. 회색 "/"(담임이 미리 표시한 학생)가 교실에 있으면 눌러서 해제합니다.</li>
+            <li>변경이 없어도 [저장]을 누르면 "확인"으로 기록됩니다.</li>
+          </ol>
+        </div>
+        <div class="card" id="h5"><h2>5. 출석부 읽는 법</h2>
+          <div class="keys">
+            <div><b style="color:#6b7280">/</b>나이스에서 올린 결석·지각·조퇴</div>
+            <div style="background:var(--red-soft);border-color:var(--red-line)"><b style="color:var(--red)">/</b>교과선생님이 새로 찍음 → 알림</div>
+            <div style="background:var(--accent-soft2);border-color:var(--accent-line)"><b style="color:var(--ok);font-size:15px">출석</b>나이스 "/"를 교과선생님이 해제</div>
+          </div>
+          <p class="mute" style="font-size:14px;margin:12px 0 0"><b>재실 인원</b> = 재적 − 자습반 − 위탁 − "/" 표시 학생. 빨간 "/"와 "출석"은 눌러서 지울 수 있습니다(알림 없음).</p>
+        </div>
+        <div class="card" id="h6"><h2>6. 자주 묻는 질문</h2>
+          <details class="faq"><summary>알림이 오지 않아요</summary><p>ntfy 앱에 구독한 토픽 이름이 [우리 반 설정]의 토픽과 한 글자도 다르지 않은지 확인하고, [테스트 알림]을 다시 눌러 보세요. 휴대폰 설정에서 ntfy 알림이 꺼져 있지 않은지도 확인하세요.</p></details>
+          <details class="faq"><summary>교과선생님 이름이 목록에 없어요</summary><p>우리 반에 들어오는 선생님만 나옵니다. 대강이면 [시간표 변경]에 그 선생님 이름을 넣으면 목록에 생깁니다.</p></details>
+          <details class="faq" style="border-bottom:1px solid var(--line2)"><summary>QR이 학생에게 노출됐어요</summary><p>[우리 반 설정] → [주소 새로 만들기] 후 QR을 다시 인쇄하세요. 이전 QR은 바로 열리지 않게 됩니다.</p></details>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- 컴시간 (전체 관리자) -->
   <section data-p="comci" class="hidden">
     <div class="card">
@@ -257,7 +419,7 @@ td.chg{background:var(--accent-soft);font-weight:700}
         </div>
         <p id="cTokenMsg" style="margin:6px 0 0"></p>
       </div>
-      <p class="mute" style="margin-top:12px">평일 아침 07:10에 하루 한 번 자동으로 받아 옵니다. 그 뒤에 생긴 교환은 [날짜별 변경]에 직접 넣거나 아래처럼 바로 받으세요. 바로 받으려면 GitHub 저장소 → <b>Actions</b> → <b>컴시간 시간표 동기화</b> → <b>Run workflow</b>.</p>
+      <p class="mute" style="margin-top:12px">평일 아침 07:10에 하루 한 번 자동으로 받아 옵니다. 그 뒤에 생긴 교환은 [시간표 변경]에 직접 넣거나 아래처럼 바로 받으세요. 바로 받으려면 GitHub 저장소 → <b>Actions</b> → <b>컴시간 시간표 동기화</b> → <b>Run workflow</b>.</p>
     </div>
     <div class="card">
       <h2 style="margin-top:0">선생님 번호 → 이름</h2>
@@ -302,13 +464,14 @@ td.chg{background:var(--accent-soft);font-weight:700}
       <div class="row" style="margin-top:8px"><input id="newSuper" type="email" placeholder="이메일" style="width:260px"><button class="btn ghost" id="addSuper">전체 관리자 추가</button></div>
     </div>
   </section>
+  </div>
 </div>
 
-<script src="config.js?v=15"></script>
+<script src="config.js?v=16"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=15"></script>
+<script src="neis-parse.js?v=16"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -324,7 +487,7 @@ function say(el, text, cls){ $(el).className = cls || ""; $(el).textContent = te
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} } };
 
 let SUPER = false, CLASSES = [], CUR = null;
-const GLOBAL_TABS = ["adm", "comci"];
+const GLOBAL_TABS = ["adm", "comci", "help"];
 const curClass = () => CLASSES.find(c => c.id === CUR) || null;
 const tabNow = () => (document.querySelector("#tabs button.on") || {}).dataset?.t || "board";
 
@@ -380,6 +543,7 @@ async function boot(){
   $("admTab").classList.toggle("hidden", !SUPER);
   $("comciTab").classList.toggle("hidden", !SUPER);
   $("ttTab").classList.toggle("hidden", !SUPER);
+  $("schoolMenu").classList.toggle("hidden", !SUPER);
   document.querySelectorAll(".super-only").forEach(el => el.classList.toggle("hidden", !SUPER));
   $("bDate").value = kstToday(); $("dDate").value = kstToday();
   await loadClasses();
@@ -412,7 +576,8 @@ async function onClassChange(){
 
 /* ---------- 탭 ---------- */
 function showTab(t){
-  [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  $("tabs").querySelectorAll("button[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  $("schoolMenu").open = false;
   const global = GLOBAL_TABS.includes(t);
   document.querySelectorAll("section[data-p]").forEach(s => s.classList.toggle("hidden", s.dataset.p !== t || (!CUR && !global)));
   if(!CUR && !global) return;
@@ -443,6 +608,7 @@ function goTo(tab, elId){
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if(b) goTo(b.dataset.go, b.dataset.el); });
 
+document.addEventListener("click", e => { const m = $("schoolMenu"); if(m && m.open && !m.contains(e.target)) m.open = false; });
 async function saveSetup(fields){
   const c = curClass(); if(!c) return;
   c.setup = {...(c.setup || {}), ...fields};
@@ -477,21 +643,22 @@ function renderSetup(){
   const s = c.setup || {}, today = kstToday();
   // 오늘 업로드 알림 (오늘 수업이 있는 날만)
   $("todayBar").classList.toggle("hidden", !(I.classToday && s.last_upload !== today));
+  $("setupCard").classList.add("hidden"); return;   // 안내는 [사용 도움말] 탭으로 옮김
 
   const items = [
     {ok: I.students > 0, title: I.students ? `학생 명단 ${I.students}명` + (I.study || I.ex ? ` (자습반 ${I.study} · 위탁 ${I.ex})` : "") : "학생 명단 입력",
-     text: `[설정·QR·명단] 탭 → <b>학생 명단</b>에서 확인하세요. 한 줄에 "번호 이름". 자습반 학생은 이름 뒤에 <b>(자습반)</b>, 위탁 학생은 <b>(위탁)</b>을 붙이고 [명단 저장]. 자습반·위탁 학생은 재실 인원에서 빠집니다. 나이스 파일을 처음 올려도 명단이 자동으로 채워집니다.`,
+     text: `[우리 반 설정] 탭 → <b>학생 명단</b>에서 확인하세요. 한 줄에 "번호 이름". 자습반 학생은 이름 뒤에 <b>(자습반)</b>, 위탁 학생은 <b>(위탁)</b>을 붙이고 [명단 저장]. 자습반·위탁 학생은 재실 인원에서 빠집니다. 나이스 파일을 처음 올려도 명단이 자동으로 채워집니다.`,
      acts: `<button class="btn ghost sm" data-go="set" data-el="roster">명단 열기</button>`},
     {ok: !!s.ntfy_ok, title: "휴대폰으로 알림 받기 (ntfy)",
      text: `① 휴대폰 앱스토어(아이폰 App Store · 안드로이드 Play 스토어)에서 <b>ntfy</b> 설치 → ② 앱에서 <b>+</b> 누르고 아래 토픽 이름을 그대로 입력 → <b>Subscribe</b> → ③ [테스트 알림]을 눌러 휴대폰에 알림이 오면 [알림 받았어요].<br>토픽: <code id="suTopic"></code>`,
      acts: `<button class="btn ghost sm" id="suCopy">토픽 복사</button><button class="btn ghost sm" id="suTest">테스트 알림</button><button class="btn sm" id="suNtfy">${s.ntfy_ok ? "완료됨" : "알림 받았어요"}</button>`},
     {ok: !!s.qr_ok, title: "QR을 종이 출석부에 붙이기",
-     text: `[설정·QR·명단] 탭에서 <b>QR 인쇄</b> → 교실 종이 출석부에 붙여 주세요. 교과선생님은 QR을 찍고 처음 한 번 자기 이름을 고르면, 본인 수업 시간에만 출결을 입력할 수 있습니다. 학생이 QR을 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다. 노출되면 [주소 새로 만들기].`,
+     text: `[우리 반 설정] 탭에서 <b>QR 인쇄</b> → 교실 종이 출석부에 붙여 주세요. 교과선생님은 QR을 찍고 처음 한 번 자기 이름을 고르면, 본인 수업 시간에만 출결을 입력할 수 있습니다. 학생이 QR을 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다. 노출되면 [주소 새로 만들기].`,
      acts: `<button class="btn ghost sm" data-go="set" data-el="qr">QR 열기</button><button class="btn sm" id="suQr">${s.qr_ok ? "완료됨" : "붙였어요"}</button>`},
     {ok: I.comci || I.manualTT, title: I.comci ? "시간표: 컴시간 자동 연동 중" : (I.manualTT ? "시간표: 직접 입력한 시간표 사용 중" : "시간표 입력"),
-     text: SUPER ? (I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [날짜별 변경]에 직접 넣으면 바로 반영됩니다.`
-                         : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [날짜별 변경]에서 그날만 바꿀 수 있습니다.`)
-                 : `시간표는 매일 아침 자동으로 받아 옵니다. 교체·대강이 생기면 [날짜별 변경]에서 그날 그 교시 선생님 이름을 넣으세요.`,
+     text: SUPER ? (I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [시간표 변경]에 직접 넣으면 바로 반영됩니다.`
+                         : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [시간표 변경]에서 그날만 바꿀 수 있습니다.`)
+                 : `시간표는 매일 아침 자동으로 받아 옵니다. 교체·대강이 생기면 [시간표 변경]에서 그날 그 교시 선생님 이름을 넣으세요.`,
      acts: SUPER ? `<button class="btn ghost sm" data-go="tt">시간표 열기</button>` : `<button class="btn ghost sm" data-go="day">날짜별 변경 열기</button>`},
     {ok: !!s.last_upload, title: "매일: 나이스 일일출석부 올리기",
      text: `아침에(출결 변동이 있으면 중간에도) 나이스 → <b>학급담임 → 학적 → 출결관리 → 일일출결관리 → 출력 → 디스크 모양 아이콘 → XLS data</b>로 저장 → [나이스 업로드] 탭에 올리기. 미리 표시된 "/"는 교과선생님 화면에 그대로 보이고, 새로 찍힌 "/"만 알림이 옵니다.` + (s.last_upload ? `<br>마지막 업로드: ${fmtDate(s.last_upload)}` : ""),
@@ -520,7 +687,7 @@ function renderSetup(){
 let boardTimer = null;
 async function loadBoard(){
   if(!CUR) return;
-  const d = $("bDate").value || kstToday(), c = CUR;
+  const d = $("bDate").value || kstToday(), c = CUR, today = kstToday();
   try{
     const [st, nm, nd, tm, sch, lg] = await Promise.all([
       sb.from("students").select("*").eq("class_id", c).order("no"),
@@ -535,31 +702,78 @@ async function loadBoard(){
     const T = new Map(tmarks.map(x => [x.student_no + ":" + x.period, x]));
     const D = new Map(nday.map(x => [x.student_no, x]));
     const slots = ["조회", ...schedule.map(x => String(x.period)), "종례"];
-    $("bInfo").textContent = `${fmtDate(d)} · ${schedule.length ? schedule.length + "교시" : "수업 없음"}` + (neis.length || nday.length ? "" : " · 나이스 업로드 없음");
-    if(!students.length){ $("bTable").innerHTML = `<tr><td class="mute" style="padding:20px">명단이 없습니다. [설정·QR·명단] 탭에서 명단을 입력하거나 나이스 파일을 올리세요.</td></tr>`; $("bLog").innerHTML = ""; return; }
-    let h = `<thead><tr><th>번호</th><th>성명</th><th>마감</th>${slots.map(s => {
+
+    // 지금 교시 (오늘만)
+    const nowHM = new Intl.DateTimeFormat("en-GB", {timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", hour12:false}).format(new Date());
+    const isToday = d === today;
+    const cur = isToday ? schedule.find(x => x.start <= nowHM && nowHM < x.end) : null;
+    const lastStarted = isToday ? [...schedule].reverse().find(x => x.start <= nowHM) : null;
+    const focus = cur || lastStarted || null;     // 재실 계산 기준 교시
+    const checked = new Set(logs.map(l => l.period));
+
+    $("bTitle").textContent = isToday ? "오늘 출석부" : `${fmtDate(d)} 출석부`;
+    $("bInfo").textContent = (isToday ? fmtDate(d) + " · " : "") +
+      (!schedule.length ? "수업 없는 날" : cur ? `지금 ${cur.period}교시 · ${cur.teacher || "선생님 미정"} 수업` : isToday && nowHM < schedule[0].start ? "수업 전" : isToday ? "수업 시간 아님" : `${schedule.length}교시`) +
+      (neis.length || nday.length || ((curClass().setup || {}).last_upload === d) ? "" : " · 나이스 업로드 없음");
+
+    // 교시별 체크 현황
+    $("bTimeline").innerHTML = schedule.map(x => {
+      let cls, st;
+      if(isToday && cur && cur.period === x.period){ cls = "now"; st = checked.has(x.period) ? "수업 중 · 체크함" : "수업 중 · 체크 대기"; }
+      else if(checked.has(x.period)){ cls = "done"; st = "✓ 체크 완료"; }
+      else if(d > today || (isToday && x.start > nowHM)){ cls = "next"; st = "예정"; }
+      else { cls = "miss"; st = "체크 없음"; }
+      return `<li class="${cls}"><div class="lb">${x.period}교시 · ${esc(x.start)}</div><div class="tc">${esc(x.teacher || "미정")}${x.changed ? ' <span class="pill">교체</span>' : ""}</div><div class="st">${st}</div></li>`;
+    }).join("");
+    $("bTimeline").classList.toggle("hidden", !schedule.length);
+
+    // 재실
+    const enrolled = students.length, ex = students.filter(s => s.excluded).length;
+    const study = students.filter(s => !s.excluded && /자습/.test(s.tag || "")).length;
+    let absent = null;
+    if(focus){
+      const p = String(focus.period);
+      absent = students.filter(s => !s.excluded && !/자습/.test(s.tag || "")).filter(s => {
+        const t = T.get(s.no + ":" + p);
+        return (t && t.kind === "absent") || (N.has(s.no + ":" + p) && !(t && t.kind === "present"));
+      }).length;
+    }
+    $("bCount").innerHTML = enrolled ? (absent === null
+        ? `<div class="big"><span class="mute">재적</span><b>${enrolled}</b><span class="mute">명</span></div>`
+        : `<div class="big"><span class="mute">${cur ? "지금 재실" : focus.period + "교시 재실"}</span><b>${enrolled - ex - study - absent}</b><span class="mute">/ ${enrolled}명</span></div>`) +
+      `<div class="pills"><span>자습반<b>${study}</b></span><span>위탁<b>${ex}</b></span>${absent === null ? "" : `<span class="red">없음<b>${absent}</b></span>`}</div>` : "";
+    $("bCount").classList.toggle("hidden", !enrolled);
+
+    if(!students.length){ $("bTable").innerHTML = `<tr><td class="mute" style="padding:24px;text-align:left">명단이 없습니다. [우리 반 설정]에서 명단을 입력하거나 나이스 파일을 올리세요.</td></tr>`; $("bLog").innerHTML = `<span class="mute">기록 없음</span>`; return; }
+    const curP = cur ? String(cur.period) : "";
+    let h = `<thead><tr><th>번호</th><th style="text-align:left">이름</th><th>마감</th>${slots.map(s => {
       const sc = schedule.find(x => String(x.period) === s);
-      return `<th>${/^\d+$/.test(s) ? s + "교시" : s}${sc && sc.teacher ? `<br><span style="font-weight:400">${esc(sc.teacher)}</span>` : ""}${sc && sc.changed ? ' <span class="pill">교체</span>' : ""}</th>`;
-    }).join("")}<th>비고</th></tr></thead><tbody>`;
+      return `<th class="${s === curP ? "cur" : ""}">${/^\d+$/.test(s) ? s + "교시" : s}${sc && sc.teacher ? `<br><span style="font-weight:400">${esc(sc.teacher)}</span>` : ""}${sc && sc.changed ? ' <span class="pill">교체</span>' : ""}</th>`;
+    }).join("")}<th style="text-align:left">비고</th></tr></thead><tbody>`;
     for(const s of students){
       const nd_ = D.get(s.no) || {};
-      h += `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}${s.tag ? ` <span class="mute">${esc(s.tag)}</span>` : ""}</td><td>${esc(nd_.kind)}</td>`;
+      h += `<tr class="${s.excluded ? "ex" : ""}"><td class="mute">${s.no}</td><td class="l" style="font-weight:600">${esc(s.name)}${s.tag ? ` <span class="pill">${esc(s.tag)}</span>` : ""}</td><td class="mute">${esc(nd_.kind)}</td>`;
       for(const sl of slots){
         const n = N.has(s.no + ":" + sl), t = /^\d+$/.test(sl) ? T.get(s.no + ":" + sl) : null;
+        const cc = sl === curP ? " cur" : "";
         const tip = t ? `${esc(t.teacher)} ${new Date(t.created_at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}` : "";
-        if(t && t.kind === "present") h += `<td class="s p" data-no="${s.no}" data-p="${sl}" data-k="present" title="나이스 / 해제 · ${tip}">출석</td>`;
-        else if(t) h += `<td class="s t${n ? " both" : ""}" data-no="${s.no}" data-p="${sl}" title="${tip}">/</td>`;
-        else h += `<td class="s">${n ? "/" : ""}</td>`;
+        if(t && t.kind === "present") h += `<td class="s p${cc}" data-no="${s.no}" data-p="${sl}" data-k="present" title="나이스 / 해제 · ${tip}">출석</td>`;
+        else if(t) h += `<td class="s t${n ? " both" : ""}${cc}" data-no="${s.no}" data-p="${sl}" title="${tip}">/</td>`;
+        else h += `<td class="s${cc}">${n ? "/" : ""}</td>`;
       }
       h += `<td class="note">${esc(nd_.note)}</td></tr>`;
     }
     $("bTable").innerHTML = h + "</tbody>";
     $("bTable").querySelectorAll("td.t, td.p").forEach(td => td.onclick = () => removeMark(d, +td.dataset.p, +td.dataset.no, td.dataset.k));
+
+    // 최근 입력 (새 것부터)
     const name = no => (students.find(s => s.no === no) || {}).name || "";
-    const act = {add:"없음 입력", remove:"정정 → 출석", present:"출석 확인(나이스 / 해제)", unpresent:"정정 → 다시 없음", admin_remove:"담임 삭제", check:"확인(변경 없음)"};
-    $("bLog").innerHTML = logs.length ? logs.map(l =>
-      `<div>${new Date(l.at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})} · ${l.period}교시 · ${l.action === "check" ? "" : `${l.student_no}번 ${esc(name(l.student_no))} · `}<b>${act[l.action] || esc(l.action)}</b> · ${esc(l.teacher || "")}</div>`).join("")
-      : `<span class="mute">기록 없음</span>`;
+    const act = {add:["없음", "a"], unpresent:["다시 없음", "a"], remove:["출석 정정", "p"], present:["출석 확인", "p"], admin_remove:["담임 삭제", "c"], check:["확인", "c"]};
+    $("bLog").innerHTML = logs.length ? [...logs].reverse().map(l => {
+      const [label, cls] = act[l.action] || [l.action, "c"];
+      const tm = new Date(l.at).toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"});
+      return `<div><b class="${cls}">${esc(label)}</b> ${l.period}교시${l.action === "check" ? "" : ` ${esc(name(l.student_no))}`} · ${esc(l.teacher || "")}<span class="tm">${tm}</span></div>`;
+    }).join("") : `<span class="mute">기록 없음</span>`;
   }catch(e){ $("bTable").innerHTML = `<tr><td class="err">불러오기 실패: ${esc(e.message)}</td></tr>`; }
 }
 async function removeMark(d, p, no, kind){
@@ -582,8 +796,8 @@ function subscribe(){
 
 /* ---------- 업로드 ---------- */
 let PARSED = null;
-$("uFile").onchange = async e => {
-  const f = e.target.files[0]; if(!f) return;
+async function handleUpload(f){
+  if(!f) return;
   PARSED = null; $("uPrevBox").classList.add("hidden");
   try{
     const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
@@ -606,7 +820,11 @@ $("uFile").onchange = async e => {
     P.students.map(s => `<tr class="${s.excluded ? "ex" : ""}"><td>${s.no}</td><td class="l">${esc(s.name)}</td><td>${esc(s.kind)}</td>${slots.map(sl => `<td class="s">${s.slots.includes(sl) ? "/" : ""}</td>`).join("")}<td class="note">${esc(s.note)}</td></tr>`).join("") + "</tbody>";
   $("uPrevBox").classList.remove("hidden");
   $("uApply").onclick = applyUpload;
-};
+}
+$("uFile").onchange = e => handleUpload(e.target.files[0]);
+["dragenter", "dragover"].forEach(ev => $("uDrop").addEventListener(ev, e => { e.preventDefault(); $("uDrop").classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => $("uDrop").addEventListener(ev, e => { e.preventDefault(); $("uDrop").classList.remove("over"); }));
+$("uDrop").addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if(f) handleUpload(f); });
 async function applyUpload(){
   const P = PARSED, c = CUR; if(!P || !c) return;
   $("uApply").disabled = true; say("uMsg", "적용 중…", "mute");
