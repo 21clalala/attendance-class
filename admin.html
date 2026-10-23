@@ -184,12 +184,16 @@ td.chg{background:var(--accent-soft);font-weight:700}
       <input type="date" id="dDate"><span class="mute" id="dInfo"></span>
     </div>
     <div class="card">
-      <p class="mute" style="margin-top:0">교체·대강 칸에 이름을 넣으면 그날 그 교시만 바뀝니다(이 반만 적용). 수업 여부와 시각은 학교 공통이라 전체 관리자만 바꿀 수 있습니다.</p>
+      <p class="mute" style="margin-top:0">단축수업 등으로 시각이 바뀌면 고친 뒤 저장하세요. 수업이 없는 교시는 체크를 끄세요. 교체·대강 칸에 이름을 넣으면 그날 그 교시만 바뀝니다.</p>
+      <div class="row super-only" style="margin-bottom:8px">시각 변경 적용 범위:
+        <label class="row" style="gap:4px"><input type="radio" name="dScope" value="class" checked> 이 반만</label>
+        <label class="row" style="gap:4px"><input type="radio" name="dScope" value="school"> 모든 반</label>
+      </div>
       <div class="tbox"><table id="dTable"></table></div>
       <div class="row" style="margin-top:12px">
         <button class="btn" id="dSave">저장</button>
-        <button class="btn ghost super-only" id="dReset">기본 시정으로 되돌리기</button>
-        <button class="btn danger super-only" id="dNone">수업 없는 날로 설정</button>
+        <button class="btn ghost" id="dReset">시각 원래대로</button>
+        <button class="btn danger" id="dNone">수업 없는 날로 설정</button>
         <span id="dMsg"></span>
       </div>
     </div>
@@ -300,11 +304,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=14"></script>
+<script src="config.js?v=15"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=14"></script>
+<script src="neis-parse.js?v=15"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -720,37 +724,47 @@ $("bellSave").onclick = async () => {
 
 /* ---------- 날짜별 변경 ---------- */
 let DAY = null;
+const scope = () => SUPER ? ((document.querySelector('input[name="dScope"]:checked') || {}).value || "class") : "class";
+const periodsJson = rows => JSON.stringify(rows.map(r => ({p:r.p, s:r.s, e:r.e})));
 async function loadDay(){
   const d = $("dDate").value || kstToday(), c = CUR;
   try{
-    const [ds, ov, up1, up2, asch] = await Promise.all([
+    const [ds, cds, ov, up1, up1c, up2, asch] = await Promise.all([
       sb.from("day_schedule").select("*").eq("d", d).maybeSingle(),
+      sb.from("class_day_schedule").select("*").eq("class_id", c).eq("d", d).maybeSingle(),
       sb.from("teacher_override").select("*").eq("class_id", c).eq("d", d),
       sb.from("day_schedule").select("*").gte("d", kstToday()).order("d"),
+      sb.from("class_day_schedule").select("*").eq("class_id", c).gte("d", kstToday()).order("d"),
       sb.from("teacher_override").select("*").eq("class_id", c).gte("d", kstToday()).order("d").order("period"),
       sb.rpc("admin_schedule", {p_class: c, p_d: d})]);
-    const dsRow = must(ds), ovs = must(ov), sched = must(asch) || [];
-    DAY = {d, custom: !!dsRow};
+    if(c !== CUR) return;
+    const school = must(ds), cls = cds.error ? null : cds.data, ovs = must(ov), sched = must(asch) || [];
     const maxW = (BASE.wmax.find(x => x.weekday === isoDow(d)) || {}).max_period || 0;
-    const custom = dsRow ? new Map(dsRow.periods.map(x => [x.p, x])) : null;
-    const maxP = Math.max(7, ...BASE.bell.map(b => b.period));
-    const dis = SUPER ? "" : "disabled";
-    $("dInfo").textContent = `${fmtDate(d)} · ` + (dsRow ? (dsRow.periods.length ? "시정 변경됨" : "수업 없는 날") : "기본 시정");
+    const def = BASE.bell.filter(b => b.period <= maxW).map(b => ({p:b.period, s:t5(b.start_t), e:t5(b.end_t)}));
+    const schoolRows = school ? school.periods : def;            // 학교 기준(반별 변경 없을 때)
+    const effRows = cls ? cls.periods : schoolRows;              // 이 반 실제 시정
+    DAY = {d, def, school: !!school, cls: !!cls, schoolRows};
+    const eff = new Map(effRows.map(x => [x.p, x]));
+    const maxP = Math.max(7, ...BASE.bell.map(b => b.period), ...effRows.map(x => x.p));
+    const state = cls ? (cls.periods.length ? "이 반만 시정 변경됨" : "이 반만 수업 없음")
+                : school ? (school.periods.length ? "학교 전체 시정 변경됨" : "학교 전체 수업 없음") : "기본 시정";
+    $("dInfo").textContent = `${fmtDate(d)} · ${state}`;
     let h = `<thead><tr><th>수업</th><th>교시</th><th>시작</th><th>종료</th><th>기본 선생님</th><th>교체·대강</th></tr></thead><tbody>`;
     for(let p = 1; p <= maxP; p++){
       const b = BASE.bell.find(x => x.period === p) || {};
-      const cc = custom ? custom.get(p) : null;
-      const on = custom ? !!cc : p <= maxW;
+      const cc = eff.get(p);
       const st = cc ? cc.s : t5(b.start_t), en = cc ? cc.e : t5(b.end_t);
       const o = (ovs.find(x => x.period === p) || {}).teacher || "";
-      h += `<tr><td><input type="checkbox" data-on="${p}" ${on ? "checked" : ""} ${dis}></td><td>${p}교시</td>
-        <td><input type="time" data-s="${p}" value="${st}" ${dis}></td><td><input type="time" data-e="${p}" value="${en}" ${dis}></td>
+      h += `<tr><td><input type="checkbox" data-on="${p}" ${cc ? "checked" : ""}></td><td>${p}교시</td>
+        <td><input type="time" data-s="${p}" value="${st}"></td><td><input type="time" data-e="${p}" value="${en}"></td>
         <td>${baseCell(sched.find(x => x.period === p), d, p)}</td>
         <td><input data-o="${p}" value="${esc(o)}" placeholder="그대로" style="width:120px"></td></tr>`;
     }
     $("dTable").innerHTML = h + "</tbody>";
+    const desc = x => x.periods.length ? `(${x.periods.map(p => p.p + "교시 " + p.s).join(", ")})` : "";
     const ups = [
-      ...must(up1).map(x => ({d:x.d, t:x.periods.length ? `시정 변경 (${x.periods.map(p => p.p + "교시 " + p.s).join(", ")})` : "수업 없는 날"})),
+      ...must(up1).map(x => ({d:x.d, t: x.periods.length ? `학교 전체 시정 변경 ${desc(x)}` : "학교 전체 수업 없음"})),
+      ...(up1c.error ? [] : up1c.data).map(x => ({d:x.d, t: x.periods.length ? `이 반만 시정 변경 ${desc(x)}` : "이 반만 수업 없음"})),
       ...must(up2).map(x => ({d:x.d, t:`${x.period}교시 → ${x.teacher}`}))].sort((a, b) => a.d.localeCompare(b.d));
     $("dUpcoming").innerHTML = ups.length ? ups.map(u => `<div><b>${fmtDate(u.d)}</b> · ${esc(u.t)}</div>`).join("") : `<span class="mute">없음</span>`;
     say("dMsg", "");
@@ -764,34 +778,46 @@ function baseCell(s, d, p){
   }
   return esc(s ? (s.base || "") : defaultTeacher(d, p)) || '<span class="mute">—</span>';
 }
+async function saveTimes(rows){
+  const d = DAY.d, c = CUR;
+  if(scope() === "school"){
+    if(periodsJson(rows) === periodsJson(DAY.def)) must(await sb.from("day_schedule").delete().eq("d", d));
+    else must(await sb.from("day_schedule").upsert({d, periods:rows}));
+    must(await sb.from("class_day_schedule").delete().eq("class_id", c).eq("d", d));   // 이 반 개별 설정은 정리
+  }else{
+    if(periodsJson(rows) === periodsJson(DAY.schoolRows)) must(await sb.from("class_day_schedule").delete().eq("class_id", c).eq("d", d));
+    else must(await sb.from("class_day_schedule").upsert({class_id:c, d, periods:rows}));
+  }
+}
 $("dDate").onchange = loadDay;
 $("dSave").onclick = async () => {
   const d = DAY.d, c = CUR;
   try{
-    if(SUPER){
-      const rows = [...document.querySelectorAll("[data-on]")].filter(x => x.checked).map(x => {
-        const p = +x.dataset.on;
-        return {p, s:document.querySelector(`[data-s="${p}"]`).value, e:document.querySelector(`[data-e="${p}"]`).value};
-      });
-      if(rows.some(r => !r.s || !r.e || r.s >= r.e)) throw new Error("시작·종료 시각을 확인하세요.");
-      const maxW = (BASE.wmax.find(x => x.weekday === isoDow(d)) || {}).max_period || 0;
-      const def = BASE.bell.filter(b => b.period <= maxW).map(b => ({p:b.period, s:t5(b.start_t), e:t5(b.end_t)}));
-      if(JSON.stringify(rows) === JSON.stringify(def)) must(await sb.from("day_schedule").delete().eq("d", d));
-      else must(await sb.from("day_schedule").upsert({d, periods:rows}));
-    }
+    const rows = [...document.querySelectorAll("[data-on]")].filter(x => x.checked).map(x => {
+      const p = +x.dataset.on;
+      return {p, s:document.querySelector(`[data-s="${p}"]`).value, e:document.querySelector(`[data-e="${p}"]`).value};
+    });
+    if(rows.some(r => !r.s || !r.e || r.s >= r.e)) throw new Error("시작·종료 시각을 확인하세요.");
+    const sorted = [...rows].sort((a, b) => a.s.localeCompare(b.s));
+    if(sorted.some((r, i) => i && r.s < sorted[i - 1].e)) throw new Error("교시 시간이 서로 겹칩니다.");
+    await saveTimes(rows);
     must(await sb.from("teacher_override").delete().eq("class_id", c).eq("d", d));
     const ov = [...document.querySelectorAll("[data-o]")].filter(i => i.value.trim()).map(i => ({class_id:c, d, period:+i.dataset.o, teacher:i.value.trim()}));
     if(ov.length) must(await sb.from("teacher_override").insert(ov));
-    await loadDay(); say("dMsg", "저장했습니다.", "ok");
+    await loadDay(); say("dMsg", "저장했습니다." + (scope() === "school" ? " (모든 반에 적용)" : ""), "ok");
   }catch(e){ say("dMsg", "저장 실패: " + e.message, "err"); }
 };
 $("dReset").onclick = async () => {
-  try{ must(await sb.from("day_schedule").delete().eq("d", DAY.d)); await loadDay(); say("dMsg", "기본 시정으로 되돌렸습니다.", "ok"); }
-  catch(e){ say("dMsg", "실패: " + e.message, "err"); }
+  try{
+    if(scope() === "school") must(await sb.from("day_schedule").delete().eq("d", DAY.d));
+    must(await sb.from("class_day_schedule").delete().eq("class_id", CUR).eq("d", DAY.d));
+    await loadDay(); say("dMsg", scope() === "school" ? "학교 전체 기본 시정으로 되돌렸습니다." : "이 반 시각을 원래대로 되돌렸습니다.", "ok");
+  }catch(e){ say("dMsg", "실패: " + e.message, "err"); }
 };
 $("dNone").onclick = async () => {
-  if(!confirm(`${fmtDate(DAY.d)}을(를) 수업 없는 날로 설정할까요? (모든 반에 적용)`)) return;
-  try{ must(await sb.from("day_schedule").upsert({d:DAY.d, periods:[]})); await loadDay(); say("dMsg", "수업 없는 날로 설정했습니다.", "ok"); }
+  const all = scope() === "school";
+  if(!confirm(`${fmtDate(DAY.d)}을(를) 수업 없는 날로 설정할까요? (${all ? "모든 반" : "이 반만"} 적용)`)) return;
+  try{ await saveTimes([]); await loadDay(); say("dMsg", "수업 없는 날로 설정했습니다.", "ok"); }
   catch(e){ say("dMsg", "실패: " + e.message, "err"); }
 };
 
