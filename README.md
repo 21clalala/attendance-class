@@ -51,6 +51,23 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
 
 ---
 
+## 컴시간알리미 연동 (전체 관리자, 한 번)
+전체 학년·반의 이번 주·다음 주 시간표(수업 교환 반영)를 평일 07:10~16:10 사이 1시간마다 자동으로 받아 옵니다.
+
+1. **Supabase 비밀 키를 GitHub에 등록**
+   - Supabase → **Project Settings → API Keys** → **Secret keys**의 키 복사 (`sb_secret_…`, 없으면 legacy `service_role` 키)
+   - GitHub 저장소 → **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `SUPABASE_SERVICE_KEY`, Secret: 복사한 키 → **Add secret**
+   - 이 키는 채팅·코드·config.js 어디에도 넣지 마세요.
+2. 관리자 페이지 **컴시간** 탭 → 학교 이름 저장 (예: `용인고등학교`)
+3. GitHub 저장소 → **Actions → 컴시간 시간표 동기화 → Run workflow** (첫 실행)
+4. 관리자 페이지 **컴시간** 탭에서 결과 확인 → **선생님 번호 → 이름**에 실명 입력
+   (컴시간알리미 프로그램의 교사 목록 번호와 같습니다. "07 김영대"처럼 붙여 넣기 가능)
+
+선생님 결정 순서: **직접 입력한 교체·대강 > 컴시간 > 직접 입력한 기본 시간표**.
+동기화가 실패해도 마지막으로 받은 자료와 직접 입력한 시간표로 계속 동작합니다.
+(비공식 연동이라 컴시간 쪽 구조가 바뀌면 멈출 수 있습니다. GitHub는 저장소에 60일간 변경이 없으면 예약 실행을 멈추니, 그때는 Actions 탭에서 다시 켜 주세요.)
+
 ## 매일 사용 (담임)
 - 아침(또는 중간에): 나이스 **일일출석부** 엑셀 내려받기 → **나이스 업로드** → 미리보기 확인 → 적용
   (다른 반 파일이면 경고가 뜨고 적용되지 않습니다)
