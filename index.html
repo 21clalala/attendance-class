@@ -61,12 +61,23 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
+.me{margin-left:auto;font-size:14px;color:var(--mute)}
+.me b{color:var(--ink)}
+.linkbtn{background:none;border:1px solid var(--line);color:var(--accent);padding:4px 10px;font-size:13px;margin-left:6px}
+.pick{max-width:560px;margin:10px auto}
+.pick h2{font-size:18px;margin:6px 0 6px}
+.pick p{color:var(--mute);font-size:14px;margin:0 0 14px}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.names button{background:var(--card);border:1px solid var(--line);color:var(--ink);padding:14px 6px;font-size:16px;font-weight:700}
+.names button:active{background:var(--accent-soft)}
+.mine{color:var(--ink);font-weight:700}
 .hidden{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1 id="title">일일출석부</h1><span class="sub" id="date"></span></div>
+  <div class="top"><h1 id="title">일일출석부</h1><span class="sub" id="date"></span><span class="me hidden" id="me"></span></div>
+  <div class="pick hidden" id="pick"></div>
   <div id="main" class="hidden">
     <div class="banner" id="banner"></div>
     <p class="hint" id="hint"></p>
@@ -80,7 +91,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=5"></script>
+<script src="config.js?v=6"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -98,7 +109,7 @@ const DEMO_STATE = (() => {
   return {date: today, label: "체험", period: 3, teacher: "홍길동", next: null,
     schedule: [{period:3, start:"10:50", end:"11:40", teacher:"홍길동"}],
     students: names.map((name, i) => ({no: i + 1, name, excluded: false, tag: i === 7 ? "자습반" : null})),
-    neis: [{no: 4, slot: "3"}], marks: []};
+    neis: [{no: 4, slot: "3"}], marks: [], teachers: ["홍길동"]};
 })();
 async function rpc(name, a){
   if(!DEMO) return sb.rpc(name, a);
@@ -120,6 +131,10 @@ async function rpc(name, a){
 }
 
 let S = null;              // 서버 상태
+const ME_KEY = "attend-teacher";
+let ME = DEMO ? "홍길동" : (() => { try{ return localStorage.getItem(ME_KEY) || ""; }catch(e){ return ""; } })();
+let picking = false;
+function setMe(name){ ME = name; try{ name ? localStorage.setItem(ME_KEY, name) : localStorage.removeItem(ME_KEY); }catch(e){} }
 const pend = new Set();    // 이번에 누른(상태를 뒤집은) 학생 번호
 let saving = false;
 
@@ -129,6 +144,8 @@ function errText(e){
   const m = (e && (e.message||e.details)) || String(e);
   if(m.includes("invalid_key")) return "주소가 올바르지 않습니다.<br>종이 출석부의 QR 코드를 다시 찍어 주세요.";
   if(m.includes("not_in_class")||m.includes("period_changed")) return "교시가 끝나 저장되지 않았습니다. 화면을 새로 불러왔습니다.";
+  if(m.includes("not_your_period")) return "선생님 수업 시간이 아니라 저장되지 않았습니다.";
+  if(m.includes("no_teacher")) return "이 교시는 시간표에 선생님이 등록되어 있지 않습니다. 담임선생님께 알려 주세요.";
   return "연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.<br><small>"+m+"</small>";
 }
 
@@ -141,7 +158,36 @@ async function load(){
     if(prevPeriod !== undefined && pend.size) toast("교시가 바뀌어 저장하지 않은 변경은 취소되었습니다.", 4000);
     pend.clear();
   }
+  if(!DEMO && (!ME || !(S.teachers || []).includes(ME))){ if(ME) setMe(""); if(!picking) showPick(); return; }
+  if(picking) return;
   render();
+}
+
+// ---------- 선생님 이름 선택 ----------
+function showPick(){
+  picking = true;
+  $("main").classList.add("hidden"); $("bar").classList.add("hidden"); $("msg").classList.add("hidden");
+  $("me").classList.add("hidden");
+  const list = (S && S.teachers) || [];
+  const el = $("pick"); el.classList.remove("hidden");
+  el.innerHTML = `<h2>선생님 이름을 선택해 주세요</h2>
+    <p>이 기기에 한 번만 저장됩니다. 저장한 선생님의 수업 시간에만 출결을 입력할 수 있습니다.</p>
+    <div class="names"></div>
+    <p style="margin-top:16px">목록에 이름이 없으면 담임선생님께 알려 주세요.</p>`;
+  const box = el.querySelector(".names");
+  if(!list.length) box.outerHTML = `<p>아직 시간표가 등록되지 않았습니다.</p>`;
+  for(const name of list){
+    const b = document.createElement("button"); b.textContent = name;
+    b.onclick = () => {
+      if(!confirm(`${name} 선생님으로 저장할까요?`)) return;
+      setMe(name); picking = false; el.classList.add("hidden"); pend.clear(); render();
+    };
+    box.appendChild(b);
+  }
+}
+function changeMe(){
+  if(!confirm("선생님 이름을 다시 선택할까요?")) return;
+  setMe(""); pend.clear(); showPick();
 }
 
 // 현재 교시 기준 학생 상태
@@ -160,9 +206,24 @@ function render(){
   $("title").textContent = `${S.label} 일일출석부`;
   $("date").textContent = `${S.date.replaceAll("-",".")}.(${DOW[d.getDay()]})`;
 
-  const cur = S.period, sch = S.schedule || [];
+  const sch = S.schedule || [];
+  const mineToday = sch.filter(x => x.teacher === ME);
+  $("me").classList.remove("hidden");
+  $("me").innerHTML = `<b></b> 선생님`;
+  $("me").querySelector("b").textContent = ME;
+  if(!DEMO){ const b = document.createElement("button"); b.className = "linkbtn"; b.textContent = "변경"; b.onclick = changeMe; $("me").appendChild(b); }
+
+  const isMine = !!S.period && S.teacher === ME;
+  const cur = isMine ? S.period : null;
   const curInfo = sch.find(x => x.period === cur);
-  if(cur){
+  if(S.period && !isMine){
+    $("banner").className = "banner off";
+    $("banner").innerHTML = `<span class="per">지금은 ${S.period}교시 · <span class="who2"></span></span><span class="time"></span>`;
+    $("banner").querySelector(".who2").textContent = S.teacher ? `${S.teacher} 선생님 수업 시간입니다` : "시간표에 선생님이 등록되지 않은 시간입니다";
+    $("banner").querySelector(".time").innerHTML = myPeriodsText(mineToday);
+    $("hint").textContent = "선생님 수업 시간에만 출결을 입력할 수 있습니다. 교체·대강이면 담임선생님께 알려 주세요.";
+    $("bar").classList.add("hidden");
+  }else if(cur){
     $("banner").className = "banner";
     $("banner").innerHTML = `<span class="per">${cur}교시</span><span class="who"></span><span class="time">${curInfo.start}~${curInfo.end}</span>`;
     $("banner").querySelector(".who").textContent = (S.teacher || "시간표 미등록") + (S.teacher ? " 선생님" : "");
@@ -172,7 +233,7 @@ function render(){
   }else{
     $("banner").className = "banner off";
     $("banner").innerHTML = `<span class="per">지금은 수업 시간이 아닙니다</span><span class="time"></span>`;
-    $("banner").querySelector(".time").textContent = S.next ? `다음: ${S.next.period}교시 ${S.next.start}` : (sch.length ? "오늘 수업이 모두 끝났습니다" : "오늘은 수업이 없습니다");
+    $("banner").querySelector(".time").innerHTML = myPeriodsText(mineToday);
     $("hint").textContent = "수업 시간에만 해당 교시를 입력할 수 있습니다.";
     $("bar").classList.add("hidden");
   }
@@ -202,6 +263,11 @@ function render(){
   updateBar();
 }
 
+function myPeriodsText(mine){
+  if(!mine.length) return "오늘 이 반에 선생님 수업이 없습니다";
+  return "오늘 선생님 수업: " + mine.map(x => `<span class="mine">${x.period}교시</span> ${x.start}`).join(", ");
+}
+
 function toggle(no){
   if(saving) return;
   pend.has(no) ? pend.delete(no) : pend.add(no);
@@ -210,18 +276,18 @@ function toggle(no){
 
 function updateBar(){
   let a = 0, p = 0;
-  if(S && S.period) for(const no of pend){ stateOf(no).eff ? a++ : p++; }
+  if(S && S.period && S.teacher === ME) for(const no of pend){ stateOf(no).eff ? a++ : p++; }
   $("sum").textContent = (a||p) ? [a?`없음으로 ${a}명`:"", p?`출석으로 ${p}명`:""].filter(Boolean).join(" · ") : "변경 없음";
   $("sum").style.color = a ? "var(--red)" : "";
-  $("save").disabled = saving || !(S && S.period);
+  $("save").disabled = saving || !(S && S.period && S.teacher === ME);
 }
 
 $("save").onclick = async () => {
-  if(saving || !S || !S.period) return;
+  if(saving || !S || !S.period || S.teacher !== ME) return;
   const absent = [], present = [];
   for(const no of pend){ (stateOf(no).eff ? absent : present).push(no); }
   saving = true; updateBar(); $("save").textContent = "저장 중…";
-  const {data, error} = await rpc("save_marks", {p_key: KEY, p_period: S.period, p_absent: absent, p_present: present});
+  const {data, error} = await rpc("save_marks", {p_key: KEY, p_period: S.period, p_teacher: ME, p_absent: absent, p_present: present});
   saving = false; $("save").textContent = "저장";
   pend.clear();
   if(error){ toast(errText(error).replace(/<[^>]+>/g," "), 4000); await load(); return; }
