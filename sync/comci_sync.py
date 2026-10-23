@@ -179,10 +179,17 @@ def run(sb: SB, today: date) -> str:
             f"(교체 {changed}) · 선생님 {len(teachers)}명 · {' / '.join(week_labels)}")
 
 
+def annotate(level: str, msg: str) -> None:
+    """GitHub Actions 요약 화면(Annotations)에 바로 보이게 출력"""
+    print(msg)
+    one_line = msg.replace("%", "%25").replace("\r", "").replace("\n", " ")
+    print(f"::{level} title=컴시간 동기화::{one_line}")
+
+
 def main() -> int:
     token = os.environ.get("COMCI_SYNC_TOKEN", "").strip()
     if not token:
-        print("COMCI_SYNC_TOKEN 이 없습니다. GitHub 저장소 Settings → Secrets → Actions 에 추가하세요.")
+        annotate("error", "COMCI_SYNC_TOKEN 이 없습니다. GitHub 저장소 Settings → Secrets and variables → Actions 에 이름 COMCI_SYNC_TOKEN 으로 추가하세요.")
         return 1
     url, public_key = read_config_js()
     sb = SB(url, public_key, token)
@@ -190,11 +197,11 @@ def main() -> int:
     try:
         msg = run(sb, now.astimezone(KST).date())
         sb.rpc("comci_sync_finish", p_ok=True, p_message=msg)
-        print("OK:", msg)
+        annotate("notice", "OK: " + msg)
         return 0
     except Exception as e:  # noqa: BLE001
         msg = f"{type(e).__name__}: {e}"[:400]
-        print("FAIL:", msg)
+        annotate("error", "FAIL: " + msg)
         if "invalid_sync_token" not in msg and "토큰이 맞지 않습니다" not in msg:
             try:
                 sb.rpc("comci_sync_finish", p_ok=False, p_message=msg)
