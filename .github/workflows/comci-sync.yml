@@ -22,4 +22,4 @@ jobs:
       - run: pip install "comci==0.7.0" "requests>=2.31"
       - run: python sync/comci_sync.py
         env:
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          COMCI_SYNC_TOKEN: ${{ secrets.COMCI_SYNC_TOKEN }}

@@ -6,8 +6,9 @@ GitHub Actions(.github/workflows/comci-sync.yml)가 평일 정해진 시각에 �
 - 선생님 번호와 컴시간에 보이는 이름을 comci_teacher 에 저장 (관리자가 입력한 실명은 건드리지 않음)
 - 결과를 comci_config 의 last_run_at / last_ok / last_message 에 기록 (관리자 페이지에서 확인)
 
-필요한 GitHub Secret: SUPABASE_SERVICE_KEY  (Supabase 의 secret 키 또는 service_role 키)
-Supabase 주소는 저장소의 config.js 에서 읽습니다.
+필요한 GitHub Secret: COMCI_SYNC_TOKEN  (관리자 페이지 [컴시간] 탭의 동기화 토큰)
+Supabase 주소와 공개 키는 저장소의 config.js 에서 읽습니다.
+이 토큰으로는 컴시간 시간표 자료만 쓸 수 있습니다 (DB 함수 comci_sync_* 가 토큰을 확인).
 """
 from __future__ import annotations
 
@@ -35,43 +36,33 @@ EMPTY = 100  # 코드가 이 값 이하이면 수업 없음
 
 
 # ---------------------------------------------------------------- Supabase
-def supabase_url() -> str:
-    env = os.environ.get("SUPABASE_URL", "").strip()
-    if env:
-        return env.rstrip("/")
+def read_config_js() -> tuple[str, str]:
     cfg = (Path(__file__).resolve().parent.parent / "config.js").read_text(encoding="utf-8")
-    m = re.search(r'SUPABASE_URL:\s*"([^"]+)"', cfg)
-    if not m:
-        raise RuntimeError("config.js 에서 SUPABASE_URL 을 찾지 못했습니다.")
-    return m.group(1).rstrip("/")
+    url = re.search(r'SUPABASE_URL:\s*"([^"]+)"', cfg)
+    key = re.search(r'SUPABASE_KEY:\s*"([^"]+)"', cfg)
+    if not url or not key:
+        raise RuntimeError("config.js 에서 SUPABASE_URL / SUPABASE_KEY 를 찾지 못했습니다.")
+    return url.group(1).rstrip("/"), key.group(1)
 
 
 class SB:
-    def __init__(self, url: str, key: str):
-        self.base = url + "/rest/v1/"
-        self.h = {"apikey": key, "Content-Type": "application/json"}
-        if key.startswith("eyJ"):  # 예전 JWT 형식 service_role 키
-            self.h["Authorization"] = f"Bearer {key}"
+    """토큰을 확인하는 DB 함수(comci_sync_*)만 호출합니다."""
 
-    def _ok(self, r: requests.Response) -> requests.Response:
+    def __init__(self, url: str, public_key: str, token: str):
+        self.base = url + "/rest/v1/rpc/"
+        self.h = {"apikey": public_key, "Content-Type": "application/json"}
+        if public_key.startswith("eyJ"):  # 예전 JWT 형식 anon 키
+            self.h["Authorization"] = f"Bearer {public_key}"
+        self.token = token
+
+    def rpc(self, fn: str, **args):
+        r = requests.post(self.base + fn, headers=self.h, json={"p_token": self.token, **args}, timeout=60)
         if r.status_code >= 300:
-            raise RuntimeError(f"Supabase {r.status_code}: {r.text[:300]}")
-        return r
-
-    def get(self, path: str):
-        return self._ok(requests.get(self.base + path, headers=self.h, timeout=30)).json()
-
-    def patch(self, path: str, body: dict):
-        self._ok(requests.patch(self.base + path, headers=self.h, json=body, timeout=30))
-
-    def delete(self, path: str):
-        self._ok(requests.delete(self.base + path, headers=self.h, timeout=60))
-
-    def upsert(self, table: str, rows: list, on_conflict: str):
-        h = dict(self.h, Prefer="resolution=merge-duplicates,return=minimal")
-        for i in range(0, len(rows), 500):
-            self._ok(requests.post(f"{self.base}{table}?on_conflict={on_conflict}", headers=h,
-                                   json=rows[i:i + 500], timeout=60))
+            msg = r.text[:300]
+            if "invalid_sync_token" in msg:
+                msg = "동기화 토큰이 맞지 않습니다. [컴시간] 탭의 토큰을 GitHub Secret COMCI_SYNC_TOKEN 에 다시 넣으세요."
+            raise RuntimeError(f"Supabase {r.status_code}: {msg}")
+        return r.json() if r.text else None
 
 
 # ---------------------------------------------------------------- 컴시간 해석
@@ -135,13 +126,12 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
         listing = ", ".join(f'{s["region"]} {s["school_name"]}({s["school_code"]})' for s in found[:8]) or "없음"
         raise RuntimeError(f"학교를 하나로 정하지 못했습니다. 검색 결과: {listing}")
     s = exact[0]
-    sb.patch("comci_config?id=eq.1", {"school_code": s["school_code"], "school_name": s["school_name"]})
+    sb.rpc("comci_sync_set_school", p_code=int(s["school_code"]), p_name=s["school_name"])
     return int(s["school_code"]), s["school_name"]
 
 
 def run(sb: SB, today: date) -> str:
-    cfg = sb.get("comci_config?id=eq.1&select=*")
-    cfg = cfg[0] if cfg else {}
+    cfg = sb.rpc("comci_sync_config") or {}
     if cfg.get("enabled") is False:
         return "연동이 꺼져 있어 건너뜀"
     code, school = find_school_code(sb, cfg)
@@ -167,9 +157,8 @@ def run(sb: SB, today: date) -> str:
         if not rows:
             continue
         # 그 주 날짜의 기존 자료를 새 자료로 교체
-        dates = ",".join(sorted({dd.isoformat() for dd in day_dates.values()}))
-        sb.delete(f"comci_slot?d=in.({dates})")
-        sb.upsert("comci_slot", rows, "label,d,period")
+        dates = sorted({dd.isoformat() for dd in day_dates.values()})
+        sb.rpc("comci_sync_week", p_dates=dates, p_rows=rows)
         all_rows += rows
         labels |= {x["label"] for x in rows}
         week_labels.append((ctx.get("active_week") or {}).get("label", f"r={r}"))
@@ -181,10 +170,9 @@ def run(sb: SB, today: date) -> str:
     if not all_rows:
         raise RuntimeError("받아 온 수업이 없습니다. 학교 이름과 컴시간 공개 여부를 확인하세요.")
 
-    teachers = [{"idx": i, "web_name": w, "subjects": ", ".join(sorted(s))[:80],
-                 "updated_at": datetime.now(timezone.utc).isoformat()} for i, (w, s) in sorted(all_t.items())]
-    sb.upsert("comci_teacher", teachers, "idx")
-    sb.delete(f"comci_slot?d=lt.{(today - timedelta(days=60)).isoformat()}")
+    teachers = [{"idx": i, "web_name": w, "subjects": ", ".join(sorted(s))[:80]}
+                for i, (w, s) in sorted(all_t.items())]
+    sb.rpc("comci_sync_teachers", p_rows=teachers)
 
     changed = sum(1 for x in all_rows if x["changed"])
     return (f"{school or raw.get('학교명', '')} · {len(labels)}개 반 · 수업 {len(all_rows)}칸"
@@ -192,24 +180,26 @@ def run(sb: SB, today: date) -> str:
 
 
 def main() -> int:
-    key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
-    if not key:
-        print("SUPABASE_SERVICE_KEY 가 없습니다. GitHub 저장소 Settings → Secrets 에 추가하세요.")
+    token = os.environ.get("COMCI_SYNC_TOKEN", "").strip()
+    if not token:
+        print("COMCI_SYNC_TOKEN 이 없습니다. GitHub 저장소 Settings → Secrets → Actions 에 추가하세요.")
         return 1
-    sb = SB(supabase_url(), key)
+    url, public_key = read_config_js()
+    sb = SB(url, public_key, token)
     now = datetime.now(timezone.utc)
     try:
         msg = run(sb, now.astimezone(KST).date())
-        sb.patch("comci_config?id=eq.1", {"last_run_at": now.isoformat(), "last_ok": True, "last_message": msg})
+        sb.rpc("comci_sync_finish", p_ok=True, p_message=msg)
         print("OK:", msg)
         return 0
     except Exception as e:  # noqa: BLE001
         msg = f"{type(e).__name__}: {e}"[:400]
         print("FAIL:", msg)
-        try:
-            sb.patch("comci_config?id=eq.1", {"last_run_at": now.isoformat(), "last_ok": False, "last_message": msg})
-        except Exception as e2:  # noqa: BLE001
-            print("상태 기록 실패:", e2)
+        if "invalid_sync_token" not in msg and "토큰이 맞지 않습니다" not in msg:
+            try:
+                sb.rpc("comci_sync_finish", p_ok=False, p_message=msg)
+            except Exception as e2:  # noqa: BLE001
+                print("상태 기록 실패:", e2)
         return 1
 
 

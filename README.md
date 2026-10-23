@@ -54,11 +54,11 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
 ## 컴시간알리미 연동 (전체 관리자, 한 번)
 전체 학년·반의 이번 주·다음 주 시간표(수업 교환 반영)를 평일 아침 07:10에 하루 한 번 자동으로 받아 옵니다. 컴시간알리미 프로그램을 켜 둘 필요는 없습니다(GitHub 서버가 컴시간 공개 시간표를 읽음).
 
-1. **Supabase 비밀 키를 GitHub에 등록**
-   - Supabase → **Project Settings → API Keys** → **Secret keys**의 키 복사 (`sb_secret_…`, 없으면 legacy `service_role` 키)
+1. **동기화 토큰을 GitHub에 등록**
+   - 관리자 페이지 **컴시간** 탭 → **동기화 토큰** → **복사**
    - GitHub 저장소 → **Settings → Secrets and variables → Actions → New repository secret**
-   - Name: `SUPABASE_SERVICE_KEY`, Secret: 복사한 키 → **Add secret**
-   - 이 키는 채팅·코드·config.js 어디에도 넣지 마세요.
+   - **Name**: `COMCI_SYNC_TOKEN` (이름 칸) / **Secret**: 복사한 토큰 (값 칸) → **Add secret**
+   - 이 토큰으로는 컴시간 시간표 자료만 쓸 수 있습니다. 새면 [컴시간] 탭에서 **새로 만들기** 후 다시 넣으세요.
 2. 관리자 페이지 **컴시간** 탭 → 학교 이름 저장 (예: `용인고등학교`)
 3. GitHub 저장소 → **Actions → 컴시간 시간표 동기화 → Run workflow** (첫 실행)
 4. 관리자 페이지 **컴시간** 탭에서 결과 확인 → **선생님 번호 → 이름**에 실명 입력

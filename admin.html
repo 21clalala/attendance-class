@@ -220,7 +220,17 @@ td.chg{background:var(--accent-soft);font-weight:700}
         <button class="btn" id="cSave">저장</button><span id="cMsg"></span>
       </div>
       <p id="cStatus" style="margin-bottom:4px"></p>
-      <p class="mute" style="margin-top:4px">평일 아침 07:10에 하루 한 번 자동으로 받아 옵니다. 그 뒤에 생긴 교환은 [날짜별 변경]에 직접 넣거나 아래처럼 바로 받으세요. 바로 받으려면 GitHub 저장소 → <b>Actions</b> → <b>컴시간 시간표 동기화</b> → <b>Run workflow</b>.</p>
+      <div style="margin-top:12px">
+        <b>동기화 토큰</b> <span class="mute">— GitHub 저장소 Settings → Secrets and variables → Actions 에 이름 <code>COMCI_SYNC_TOKEN</code> 으로 넣으세요. 이 토큰으로는 컴시간 시간표만 쓸 수 있습니다.</span>
+        <div class="row" style="margin-top:6px">
+          <input id="cToken" readonly style="flex:1;min-width:260px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px" value="••••••••••••••••">
+          <button class="btn ghost sm" id="cTokenShow">보기</button>
+          <button class="btn ghost sm" id="cTokenCopy">복사</button>
+          <button class="btn danger sm" id="cTokenNew">새로 만들기</button>
+        </div>
+        <p id="cTokenMsg" style="margin:6px 0 0"></p>
+      </div>
+      <p class="mute" style="margin-top:12px">평일 아침 07:10에 하루 한 번 자동으로 받아 옵니다. 그 뒤에 생긴 교환은 [날짜별 변경]에 직접 넣거나 아래처럼 바로 받으세요. 바로 받으려면 GitHub 저장소 → <b>Actions</b> → <b>컴시간 시간표 동기화</b> → <b>Run workflow</b>.</p>
     </div>
     <div class="card">
       <h2 style="margin-top:0">선생님 번호 → 이름</h2>
@@ -260,11 +270,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=8"></script>
+<script src="config.js?v=9"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=8"></script>
+<script src="neis-parse.js?v=9"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -745,6 +755,7 @@ async function loadComci(){
       $("cStatus").lastElementChild.textContent = cfg.last_message || "";
     }
     renderTeacherNames();
+    loadToken();
   }catch(e){ say("cMsg", "불러오기 실패: " + e.message, "err"); }
 }
 function renderTeacherNames(){
@@ -757,6 +768,24 @@ function renderTeacherNames(){
       <td><input data-ti="${t.idx}" value="${esc(t.name || "")}" placeholder="${esc((t.web_name || "").includes("*") ? "" : t.web_name || "")}"></td></tr>`).join("") + "</tbody>"
     : `<tr><td class="mute" style="padding:16px">아직 받아 온 선생님이 없습니다. 학교 이름을 저장하고 동기화를 실행하세요.</td></tr>`;
 }
+let TOKEN = "";
+async function loadToken(){
+  try{ TOKEN = (must(await sb.from("comci_secret").select("sync_token").eq("id", 1).maybeSingle()) || {}).sync_token || ""; }
+  catch(e){ TOKEN = ""; say("cTokenMsg", "토큰을 불러오지 못했습니다: " + e.message, "err"); }
+  $("cToken").value = TOKEN ? "••••••••••••••••" : "(없음 — SQL 008을 실행하세요)"; $("cTokenShow").textContent = "보기";
+}
+$("cTokenShow").onclick = () => {
+  const hidden = $("cTokenShow").textContent === "보기";
+  $("cToken").value = hidden ? TOKEN : "••••••••••••••••"; $("cTokenShow").textContent = hidden ? "숨기기" : "보기";
+};
+$("cTokenCopy").onclick = () => { if(TOKEN) navigator.clipboard.writeText(TOKEN).then(() => say("cTokenMsg", "복사했습니다. GitHub Secret 칸에 붙여 넣으세요. (채팅에는 붙이지 마세요)", "ok")); };
+$("cTokenNew").onclick = async () => {
+  if(!confirm("토큰을 새로 만들면 GitHub에 넣어 둔 이전 토큰은 더 이상 동작하지 않습니다. 새 토큰을 GitHub Secret에 다시 넣어야 합니다. 진행할까요?")) return;
+  const {data, error} = await sb.rpc("comci_new_token");
+  if(error){ say("cTokenMsg", "실패: " + error.message, "err"); return; }
+  TOKEN = data; $("cToken").value = TOKEN; $("cTokenShow").textContent = "숨기기";
+  say("cTokenMsg", "새 토큰을 만들었습니다. 복사해서 GitHub Secret COMCI_SYNC_TOKEN 을 바꿔 주세요.", "warn");
+};
 $("cOnlyEmpty").onchange = () => { collectNames(); renderTeacherNames(); };
 function collectNames(){
   document.querySelectorAll("[data-ti]").forEach(i => { const t = CT.find(x => x.idx === +i.dataset.ti); if(t) t._new = i.value.trim(); });
