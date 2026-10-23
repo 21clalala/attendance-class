@@ -1375,3 +1375,7 @@ grant  execute on function comci_sync_config(text), comci_sync_set_school(text,i
                            comci_sync_teachers(text,jsonb), comci_sync_finish(text,boolean,text)
   to anon, authenticated;
 grant  execute on function comci_new_token() to authenticated;
+
+
+-- ===== 변경 009 (처음 설정 체크리스트) =====
+alter table classes add column if not exists setup jsonb not null default '{}'::jsonb;

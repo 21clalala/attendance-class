@@ -61,6 +61,20 @@ td.chg{background:var(--accent-soft);font-weight:700}
 .pill{display:inline-block;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent)}
 .pill.bad{background:var(--red-soft);color:var(--red)}
 .tnames input{width:120px}
+.todaybar{background:#fff4d6;color:#7a5200;border:1px solid #f0d48a;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (prefers-color-scheme: dark){ .todaybar{background:#3a2e12;color:#f3d48a;border-color:#6b5520} }
+.todaybar .t{flex:1;min-width:240px}
+.setup h2{margin:0;font-size:16px}
+.setup .item{display:flex;gap:10px;padding:10px 0;border-top:1px dashed var(--line);align-items:flex-start}
+.setup .item:first-of-type{border-top:0}
+.setup .ck{font-size:18px;line-height:1.2;width:22px;flex:none}
+.setup .body{flex:1;min-width:0}
+.setup .body b{display:block;margin-bottom:2px}
+.setup .body .mute{line-height:1.55}
+.setup .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.setup.done .item{display:none}
+.flash{animation:flash 1.6s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 .hidden{display:none!important}
 .login{max-width:380px;margin:80px auto}
 .login input{width:100%;margin-bottom:10px}
@@ -113,6 +127,12 @@ td.chg{background:var(--accent-soft);font-weight:700}
 
   <!-- 출석부 -->
   <section data-p="board">
+    <div class="todaybar hidden" id="todayBar">
+      <span class="t"><b>오늘 나이스 일일출석부가 아직 업로드되지 않았습니다.</b><br>
+      나이스 → 학급담임 → 학적 → 출결관리 → 일일출결관리 → 출력 → 디스크 모양 아이콘 → <b>XLS data</b>로 저장한 파일을 올려 주세요.</span>
+      <button class="btn" data-go="upload">업로드하기</button>
+    </div>
+    <div class="card setup hidden" id="setupCard"></div>
     <div class="row" style="margin-bottom:10px">
       <input type="date" id="bDate">
       <button class="btn ghost" id="bToday">오늘</button>
@@ -277,11 +297,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=10"></script>
+<script src="config.js?v=11"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=10"></script>
+<script src="neis-parse.js?v=11"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -388,7 +408,7 @@ function showTab(t){
   const global = GLOBAL_TABS.includes(t);
   document.querySelectorAll("section[data-p]").forEach(s => s.classList.toggle("hidden", s.dataset.p !== t || (!CUR && !global)));
   if(!CUR && !global) return;
-  if(t === "board") loadBoard();
+  if(t === "board"){ loadBoard(); loadSetup(); }
   if(t === "tt") renderTT();
   if(t === "day") loadDay();
   if(t === "set") loadSettings();
@@ -406,6 +426,86 @@ async function loadBase(){
   BASE.timetable = must(tt); BASE.bell = must(bell); BASE.wmax = must(wm);
 }
 const defaultTeacher = (d, p) => (BASE.timetable.find(r => r.weekday === isoDow(d) && r.period === p) || {}).teacher || "";
+
+/* ---------- 처음 설정 체크리스트 · 오늘 업로드 알림 ---------- */
+function goTo(tab, elId){
+  showTab(tab);
+  if(elId) setTimeout(() => { const el = $(elId); if(!el) return; const box = el.closest(".card") || el;
+    box.scrollIntoView({behavior:"smooth", block:"center"}); box.classList.remove("flash"); void box.offsetWidth; box.classList.add("flash"); }, 150);
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if(b) goTo(b.dataset.go, b.dataset.el); });
+
+async function saveSetup(fields){
+  const c = curClass(); if(!c) return;
+  c.setup = {...(c.setup || {}), ...fields};
+  try{ must(await sb.from("classes").update({setup: c.setup}).eq("id", c.id)); }catch(e){ alert("저장 실패: " + e.message); }
+  renderSetup();
+}
+let SETUP_INFO = null;
+async function loadSetup(){
+  const c = curClass(); if(!c) return;
+  const today = kstToday(), label = normCls(c.label);
+  try{
+    const [st, cs, tt, sch] = await Promise.all([
+      sb.from("students").select("no,excluded,tag").eq("class_id", c.id),
+      sb.from("comci_slot").select("d").eq("label", label).gte("d", addDays(today, -7)).limit(1),
+      sb.from("timetable").select("period").eq("class_id", c.id).limit(1),
+      sb.rpc("admin_schedule", {p_class: c.id, p_d: today})]);
+    if(c.id !== CUR) return;
+    const students = st.data || [];
+    SETUP_INFO = {
+      students: students.length,
+      study: students.filter(s => /자습/.test(s.tag || "")).length,
+      ex: students.filter(s => s.excluded).length,
+      comci: !cs.error && (cs.data || []).length > 0,
+      manualTT: (tt.data || []).length > 0,
+      classToday: (sch.data || []).length > 0,
+    };
+  }catch(e){ SETUP_INFO = null; }
+  renderSetup();
+}
+function renderSetup(){
+  const c = curClass(), I = SETUP_INFO; if(!c || !I) return;
+  const s = c.setup || {}, today = kstToday();
+  // 오늘 업로드 알림 (오늘 수업이 있는 날만)
+  $("todayBar").classList.toggle("hidden", !(I.classToday && s.last_upload !== today));
+
+  const items = [
+    {ok: I.students > 0, title: I.students ? `학생 명단 ${I.students}명` + (I.study || I.ex ? ` (자습반 ${I.study} · 위탁 ${I.ex})` : "") : "학생 명단 입력",
+     text: `[설정·QR·명단] 탭 → <b>학생 명단</b>에서 확인하세요. 한 줄에 "번호 이름". 자습반 학생은 이름 뒤에 <b>(자습반)</b>, 위탁 학생은 <b>(위탁)</b>을 붙이고 [명단 저장]. 자습반·위탁 학생은 재실 인원에서 빠집니다. 나이스 파일을 처음 올려도 명단이 자동으로 채워집니다.`,
+     acts: `<button class="btn ghost sm" data-go="set" data-el="roster">명단 열기</button>`},
+    {ok: !!s.ntfy_ok, title: "휴대폰으로 알림 받기 (ntfy)",
+     text: `① 휴대폰 앱스토어(아이폰 App Store · 안드로이드 Play 스토어)에서 <b>ntfy</b> 설치 → ② 앱에서 <b>+</b> 누르고 아래 토픽 이름을 그대로 입력 → <b>Subscribe</b> → ③ [테스트 알림]을 눌러 휴대폰에 알림이 오면 [알림 받았어요].<br>토픽: <code id="suTopic"></code>`,
+     acts: `<button class="btn ghost sm" id="suCopy">토픽 복사</button><button class="btn ghost sm" id="suTest">테스트 알림</button><button class="btn sm" id="suNtfy">${s.ntfy_ok ? "완료됨" : "알림 받았어요"}</button>`},
+    {ok: !!s.qr_ok, title: "QR을 종이 출석부에 붙이기",
+     text: `[설정·QR·명단] 탭에서 <b>QR 인쇄</b> → 교실 종이 출석부에 붙여 주세요. 교과선생님은 QR을 찍고 처음 한 번 자기 이름을 고르면, 본인 수업 시간에만 출결을 입력할 수 있습니다. 학생이 QR을 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다. 노출되면 [주소 새로 만들기].`,
+     acts: `<button class="btn ghost sm" data-go="set" data-el="qr">QR 열기</button><button class="btn sm" id="suQr">${s.qr_ok ? "완료됨" : "붙였어요"}</button>`},
+    {ok: I.comci || I.manualTT, title: I.comci ? "시간표: 컴시간 자동 연동 중" : (I.manualTT ? "시간표: 직접 입력한 시간표 사용 중" : "시간표 입력"),
+     text: I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [날짜별 변경]에 직접 넣으면 바로 반영됩니다.`
+                  : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [날짜별 변경]에서 그날만 바꿀 수 있습니다.`,
+     acts: `<button class="btn ghost sm" data-go="tt">시간표 열기</button>`},
+    {ok: !!s.last_upload, title: "매일: 나이스 일일출석부 올리기",
+     text: `아침에(출결 변동이 있으면 중간에도) 나이스 → <b>학급담임 → 학적 → 출결관리 → 일일출결관리 → 출력 → 디스크 모양 아이콘 → XLS data</b>로 저장 → [나이스 업로드] 탭에 올리기. 미리 표시된 "/"는 교과선생님 화면에 그대로 보이고, 새로 찍힌 "/"만 알림이 옵니다.` + (s.last_upload ? `<br>마지막 업로드: ${fmtDate(s.last_upload)}` : ""),
+     acts: `<button class="btn ghost sm" data-go="upload">업로드 열기</button>`},
+  ];
+  const done = items.filter(x => x.ok).length, all = done === items.length;
+  const collapsed = all ? !s.expand : !!s.collapsed;
+  const card = $("setupCard");
+  card.classList.remove("hidden");
+  card.classList.toggle("done", collapsed);
+  card.innerHTML = `<div class="row"><h2>${all ? "처음 설정 완료" : "처음 설정"} <span class="mute">(${done}/${items.length})</span></h2><span style="flex:1"></span>
+      <button class="btn ghost sm" id="suToggle">${collapsed ? "안내 보기" : "접기"}</button></div>` +
+    items.map(x => `<div class="item"><span class="ck">${x.ok ? "✅" : "⬜"}</span><div class="body"><b>${x.title}</b><div class="mute">${x.text}</div><div class="acts">${x.acts}</div></div></div>`).join("");
+  const topicEl = $("suTopic"); if(topicEl) topicEl.textContent = c.ntfy_topic || "";
+  $("suToggle").onclick = () => all ? saveSetup({expand: !s.expand}) : saveSetup({collapsed: !s.collapsed});
+  if($("suCopy")) $("suCopy").onclick = () => navigator.clipboard.writeText(c.ntfy_topic || "").then(() => { $("suCopy").textContent = "복사됨"; });
+  if($("suTest")) $("suTest").onclick = async () => {
+    const {error} = await sb.rpc("admin_test_notify", {p_class: c.id});
+    $("suTest").textContent = error ? "실패: " + error.message : "보냈습니다";
+  };
+  if($("suNtfy")) $("suNtfy").onclick = () => saveSetup({ntfy_ok: !s.ntfy_ok});
+  if($("suQr")) $("suQr").onclick = () => saveSetup({qr_ok: !s.qr_ok});
+}
 
 /* ---------- 출석부 ---------- */
 let boardTimer = null;
@@ -512,6 +612,8 @@ async function applyUpload(){
     const days = P.students.filter(s => s.kind || s.note).map(s => ({class_id:c, d:P.date, student_no:s.no, kind:s.kind || null, note:s.note || null}));
     if(days.length) must(await sb.from("neis_day").insert(days));
     say("uMsg", `적용 완료 ("/" ${marks.length}칸)`, "ok");
+    const prev = (curClass().setup || {}).last_upload || "";
+    if(P.date >= prev) await saveSetup({last_upload: P.date});
     $("bDate").value = P.date;
   }catch(e){ say("uMsg", "적용 실패: " + e.message, "err"); $("uApply").disabled = false; }
 }
