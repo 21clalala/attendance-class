@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import traceback
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -22,7 +23,6 @@ import requests
 
 from comci.school_search import search_schools
 from comci.timetable import (
-    _get_code,
     _get_jaryo,
     extract_timetable_context,
     fetch_timetable_raw,
@@ -66,6 +66,34 @@ class SB:
 
 
 # ---------------------------------------------------------------- 컴시간 해석
+_NUM = re.compile(r"\d+")
+ODD_CELLS: dict = {}   # 숫자 외 기호가 붙은 칸 (예: '>1002') 표본 — 결과 메시지에 기록
+
+
+def to_int(v) -> int:
+    """'1002', 1002, '>1002' → 1002 / 빈 값·숫자 없음 → 0"""
+    if v is None or v == "":
+        return 0
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, (int, float)):
+        return int(v)
+    m = _NUM.search(str(v))
+    if not m:
+        return 0
+    if not str(v).strip().isdigit() and len(ODD_CELLS) < 5:
+        ODD_CELLS[str(v)] = ODD_CELLS.get(str(v), 0) + 1
+    return int(m.group())
+
+
+def code_at(data, g: int, c: int, day: int, period: int) -> int:
+    """자료481/147[g+1][c+1][day][period] 를 안전하게 읽기"""
+    try:
+        v = data[g + 1][c + 1][day][period]
+    except (IndexError, KeyError, TypeError):
+        return 0
+    return to_int(v)
+
 def decode_week(raw: dict, day_dates: dict) -> tuple[list, dict]:
     """한 주 원본 JSON → (수업 행 목록, {선생님 번호: (웹 이름, {과목})})"""
     split = raw.get("분리", 100) or 100
@@ -76,13 +104,13 @@ def decode_week(raw: dict, day_dates: dict) -> tuple[list, dict]:
     if not isinstance(base, list) or len(base) < 2:
         raise RuntimeError("컴시간 응답에 시간표 자료(481)가 없습니다. 구조가 바뀌었을 수 있습니다.")
 
-    num_grades = int(base[0]) if isinstance(base[0], (int, float)) else len(base) - 1
+    num_grades = to_int(base[0]) or len(base) - 1
     rows, tinfo = [], {}
     for g in range(num_grades):
         gdata = base[g + 1] if g + 1 < len(base) else None
         if not isinstance(gdata, list) or not gdata:
             continue
-        num_classes = int(gdata[0]) if isinstance(gdata[0], (int, float)) else len(gdata) - 1
+        num_classes = to_int(gdata[0]) or len(gdata) - 1
         for c in range(num_classes):
             label = f"{g + 1}-{c + 1}"
             for day in range(1, 6):
@@ -90,8 +118,8 @@ def decode_week(raw: dict, day_dates: dict) -> tuple[list, dict]:
                 if not d:
                     continue
                 for period in range(1, MAX_PERIOD + 1):
-                    b = _get_code(base, g, c, day, period)
-                    x = _get_code(chg, g, c, day, period) if chg else 0
+                    b = code_at(base, g, c, day, period)
+                    x = code_at(chg, g, c, day, period) if chg else 0
                     code = x if x > 0 else b
                     if not code or code <= EMPTY:
                         continue
@@ -175,8 +203,9 @@ def run(sb: SB, today: date) -> str:
     sb.rpc("comci_sync_teachers", p_rows=teachers)
 
     changed = sum(1 for x in all_rows if x["changed"])
+    odd = f" · 기호 칸 {dict(list(ODD_CELLS.items())[:3])}" if ODD_CELLS else ""
     return (f"{school or raw.get('학교명', '')} · {len(labels)}개 반 · 수업 {len(all_rows)}칸"
-            f"(교체 {changed}) · 선생님 {len(teachers)}명 · {' / '.join(week_labels)}")
+            f"(교체 {changed}) · 선생님 {len(teachers)}명 · {' / '.join(week_labels)}{odd}")
 
 
 def annotate(level: str, msg: str) -> None:
@@ -200,7 +229,9 @@ def main() -> int:
         annotate("notice", "OK: " + msg)
         return 0
     except Exception as e:  # noqa: BLE001
-        msg = f"{type(e).__name__}: {e}"[:400]
+        tb = traceback.extract_tb(e.__traceback__)
+        where = " ← ".join(f"{Path(f.filename).name}:{f.lineno} {f.name}" for f in tb[-3:][::-1])
+        msg = f"{type(e).__name__}: {e} [{where}]"[:400]
         annotate("error", "FAIL: " + msg)
         if "invalid_sync_token" not in msg and "토큰이 맞지 않습니다" not in msg:
             try:
