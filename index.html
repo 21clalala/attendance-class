@@ -91,7 +91,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 </div></div>
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=6"></script>
+<script src="config.js?v=7"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -158,22 +158,25 @@ async function load(){
     if(prevPeriod !== undefined && pend.size) toast("교시가 바뀌어 저장하지 않은 변경은 취소되었습니다.", 4000);
     pend.clear();
   }
-  if(!DEMO && (!ME || !(S.teachers || []).includes(ME))){ if(ME) setMe(""); if(!picking) showPick(); return; }
+  if(!DEMO && (!ME || !(S.teachers || []).includes(ME))){ if(!picking) showPick(ME); return; }
   if(picking) return;
   render();
 }
 
 // ---------- 선생님 이름 선택 ----------
-function showPick(){
+function showPick(prev){
   picking = true;
   $("main").classList.add("hidden"); $("bar").classList.add("hidden"); $("msg").classList.add("hidden");
   $("me").classList.add("hidden");
   const list = (S && S.teachers) || [];
   const el = $("pick"); el.classList.remove("hidden");
   el.innerHTML = `<h2>선생님 이름을 선택해 주세요</h2>
+    <p class="prevnote"></p>
     <p>이 기기에 한 번만 저장됩니다. 저장한 선생님의 수업 시간에만 출결을 입력할 수 있습니다.</p>
     <div class="names"></div>
     <p style="margin-top:16px">목록에 이름이 없으면 담임선생님께 알려 주세요.</p>`;
+  if(prev) el.querySelector(".prevnote").textContent = `저장된 이름(${prev})이 ${S.label}반 시간표에 없습니다. 이 반 수업이 맞다면 담임선생님께 시간표 등록을 요청하세요.`;
+  else el.querySelector(".prevnote").remove();
   const box = el.querySelector(".names");
   if(!list.length) box.outerHTML = `<p>아직 시간표가 등록되지 않았습니다.</p>`;
   for(const name of list){

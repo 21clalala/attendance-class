@@ -1,9 +1,9 @@
 // 나이스 "일일출석부" 엑셀(시트를 2차원 배열로 읽은 것)을 해석
-// 반환: { date: "YYYY-MM-DD", students: [{no, name, kind, note, slots:["조회","1",…,"종례"], excluded}] }
+// 반환: { date: "YYYY-MM-DD", cls: "3-2", students: [{no, name, kind, note, slots:["조회","1",…,"종례"], excluded}] }
 (function (root) {
   function parseNeis(rows) {
     const reDate = /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./;
-    let date = null, cols = null;
+    let date = null, cols = null, cls = null;
     const students = new Map();
     for (const r of rows) {
       if (!r) continue;
@@ -11,6 +11,12 @@
         for (const c of r) {
           const m = String(c ?? "").match(reDate);
           if (m) { date = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`; break; }
+        }
+      }
+      if (!cls) {
+        for (const c of r) {
+          const m = String(c ?? "").match(/(\d+)\s*학년\s*(\d+)\s*반/);
+          if (m) { cls = `${+m[1]}-${+m[2]}`; break; }
         }
       }
       const first = String(r[0] ?? "").trim();
@@ -42,7 +48,7 @@
         });
       }
     }
-    return { date, students: [...students.values()].sort((a, b) => a.no - b.no) };
+    return { date, cls, students: [...students.values()].sort((a, b) => a.no - b.no) };
   }
   root.parseNeis = parseNeis;
   if (typeof module !== "undefined") module.exports = { parseNeis };
