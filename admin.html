@@ -216,11 +216,6 @@ td.chg{background:var(--accent-soft);font-weight:700}
       <div class="row"><button class="btn ghost" id="copyDemo">체험용 주소 복사</button></div>
     </div>
     <div class="card">
-      <h2 style="margin-top:0">담임 선생님</h2>
-      <p class="mute" style="margin-top:0">담임 시간(기본: 금요일 5·6교시)에는 이 이름이 교과선생님 자리에 들어갑니다. 교과선생님 화면에서 고르는 이름과 똑같이 실명으로 넣으세요.</p>
-      <div class="row"><input id="homeroom" style="width:160px" placeholder="예: 김덕형"><button class="btn ghost" id="homeroomSave">저장</button><span id="homeroomMsg"></span></div>
-    </div>
-    <div class="card">
       <h2 style="margin-top:0">알림 (ntfy)</h2>
       <p class="mute" style="margin-top:0">이 반 담임선생님 휴대폰의 ntfy 앱에서 아래 토픽을 구독하세요.</p>
       <div class="row"><input id="topic" style="flex:1;min-width:260px"><button class="btn ghost" id="topicSave">토픽 저장</button><button class="btn" id="testNotify">테스트 알림</button></div>
@@ -305,11 +300,11 @@ td.chg{background:var(--accent-soft);font-weight:700}
   </section>
 </div>
 
-<script src="config.js?v=12"></script>
+<script src="config.js?v=13"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=12"></script>
+<script src="neis-parse.js?v=13"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -488,9 +483,6 @@ function renderSetup(){
     {ok: !!s.qr_ok, title: "QR을 종이 출석부에 붙이기",
      text: `[설정·QR·명단] 탭에서 <b>QR 인쇄</b> → 교실 종이 출석부에 붙여 주세요. 교과선생님은 QR을 찍고 처음 한 번 자기 이름을 고르면, 본인 수업 시간에만 출결을 입력할 수 있습니다. 학생이 QR을 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다. 노출되면 [주소 새로 만들기].`,
      acts: `<button class="btn ghost sm" data-go="set" data-el="qr">QR 열기</button><button class="btn sm" id="suQr">${s.qr_ok ? "완료됨" : "붙였어요"}</button>`},
-    {ok: !!(c.homeroom || "").trim(), title: (c.homeroom || "").trim() ? `담임: ${esc(c.homeroom)}` : "담임 이름 입력",
-     text: `담임 시간(기본: 금요일 5·6교시)에는 담임이 교과선생님 자리에 들어가서, 그 시간 출결은 담임 휴대폰에서 체크합니다. [설정·QR·명단] 탭 → <b>담임 선생님</b>에 실명을 넣으세요.`,
-     acts: `<button class="btn ghost sm" data-go="set" data-el="homeroom">담임 이름 열기</button>`},
     {ok: I.comci || I.manualTT, title: I.comci ? "시간표: 컴시간 자동 연동 중" : (I.manualTT ? "시간표: 직접 입력한 시간표 사용 중" : "시간표 입력"),
      text: I.comci ? `매일 아침 컴시간알리미에서 시간표와 수업 교환을 자동으로 받아 옵니다. [시간표·시정] 탭에서 이번 주 시간표를 확인하세요. 급한 교체·대강은 [날짜별 변경]에 직접 넣으면 바로 반영됩니다.`
                   : `[시간표·시정] 탭에서 요일×교시 선생님 이름을 입력하세요. 교체·대강은 [날짜별 변경]에서 그날만 바꿀 수 있습니다.`,
@@ -813,7 +805,6 @@ function loadSettings(){
   $("qr").innerHTML = ""; new QRCode($("qr"), {text:url, width:220, height:220, correctLevel:QRCode.CorrectLevel.M});
   $("topic").value = curClass().ntfy_topic || "";
   $("label").value = curClass().label || "";
-  $("homeroom").value = curClass().homeroom || ""; say("homeroomMsg", "");
   say("setMsg", ""); say("labelMsg", "");
   loadRoster();
 }
@@ -866,11 +857,6 @@ $("topicSave").onclick = async () => {
 $("testNotify").onclick = async () => {
   const {error} = await sb.rpc("admin_test_notify", {p_class: CUR});
   say("setMsg", error ? "실패: " + error.message : "테스트 알림을 보냈습니다. 휴대폰을 확인하세요.", error ? "err" : "ok");
-};
-$("homeroomSave").onclick = async () => {
-  const v = $("homeroom").value.trim();
-  try{ await updateClass({homeroom: v || null}); showTab("set"); say("homeroomMsg", v ? "저장했습니다." : "담임 이름을 비웠습니다. 담임 시간에도 원래 시간표를 따릅니다.", "ok"); }
-  catch(e){ say("homeroomMsg", "실패: " + e.message, "err"); }
 };
 $("labelSave").onclick = async () => {
   const v = $("label").value.trim();
@@ -990,18 +976,27 @@ async function loadAdm(){
   if(!SUPER) return;
   try{
     const admins = must(await sb.from("admins").select("*").order("email"));
-    $("admTable").innerHTML = `<thead><tr><th>반</th><th>관리자(담임) 이메일</th><th>추가</th><th></th></tr></thead><tbody>` +
+    $("admTable").innerHTML = `<thead><tr><th>반</th><th>담임 이름</th><th>관리자(담임) 이메일</th><th>추가</th><th></th></tr></thead><tbody>` +
       (CLASSES.length ? CLASSES.map(c => `<tr>
         <td><b>${esc(c.label)}</b></td>
+        <td><div class="row" style="flex-wrap:nowrap"><input data-hr="${c.id}" value="${esc(c.homeroom || "")}" placeholder="예: 김덕형" style="width:110px"><button class="btn ghost sm" data-hrsave="${c.id}">저장</button></div></td>
         <td class="l">${admins.filter(a => a.class_id === c.id).map(a => `<span class="chip">${esc(a.email)}<button data-del="${a.id}" title="삭제">×</button></span>`).join("") || '<span class="mute">없음</span>'}</td>
         <td><div class="row" style="flex-wrap:nowrap"><input type="email" data-new="${c.id}" placeholder="이메일" style="width:220px"><button class="btn ghost sm" data-add="${c.id}">등록</button></div></td>
         <td><button class="btn danger sm" data-rm="${c.id}">반 삭제</button></td></tr>`).join("")
-      : `<tr><td colspan="4" class="mute">반이 없습니다.</td></tr>`) + "</tbody>";
+      : `<tr><td colspan="5" class="mute">반이 없습니다.</td></tr>`) + "</tbody>";
     const supers = admins.filter(a => a.class_id == null);
     $("superList").innerHTML = supers.map(a => `<span class="chip">${esc(a.email)}${supers.length > 1 ? `<button data-del="${a.id}" title="삭제">×</button>` : ""}</span>`).join("");
     document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => addAdmin(document.querySelector(`[data-new="${b.dataset.add}"]`).value, +b.dataset.add));
     document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => delAdmin(+b.dataset.del));
     document.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => delClass(+b.dataset.rm));
+    document.querySelectorAll("[data-hrsave]").forEach(b => b.onclick = async () => {
+      const id = +b.dataset.hrsave, v = document.querySelector(`[data-hr="${id}"]`).value.trim();
+      try{
+        must(await sb.from("classes").update({homeroom: v || null}).eq("id", id));
+        const cl = CLASSES.find(x => x.id === id); if(cl) cl.homeroom = v || null;
+        b.textContent = "저장됨"; setTimeout(() => b.textContent = "저장", 1500);
+      }catch(e){ say("admMsg", "담임 이름 저장 실패: " + e.message, "err"); }
+    });
   }catch(e){ say("admMsg", "불러오기 실패: " + e.message, "err"); }
 }
 async function addAdmin(email, classId){
