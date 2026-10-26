@@ -155,6 +155,11 @@ td.s.hp{color:var(--mute);font-size:11px;font-weight:600;background:var(--head)}
 td.kind{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
 td.kind:hover{background:var(--accent-soft)}
 td.kind .add{color:var(--mute);font-weight:400;font-size:12px}
+td.note[data-nno]{cursor:text}
+td.note[data-nno]:hover{background:var(--accent-soft)}
+td.note .add{opacity:0}
+td.note:hover .add{opacity:1}
+td.note input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--ok);border-radius:6px;background:var(--card);color:var(--ink)}
 .mine{display:inline-block;margin-left:4px;padding:0 5px;border-radius:999px;background:#eef1ff;color:#3b4db8;font-size:10px;font-weight:700;vertical-align:1px}
 @media (prefers-color-scheme: dark){ td.s.h{background:#22284a} .mine{background:#22284a;color:#aab6ff} }
 dialog.kd{border:0;border-radius:16px;padding:0;width:min(440px,calc(100% - 32px));background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
@@ -847,11 +852,12 @@ async function loadBoard(){
         else if(e.src === "n"){ txt = "/"; tip = "나이스"; }
         h += `<td class="${cls}${cc}" data-no="${s.no}" data-slot="${sl}" title="${esc(tip)}">${txt}</td>`;
       }
-      h += `<td class="note">${esc(note)}</td></tr>`;
+      h += `<td class="note" data-nno="${s.no}" title="눌러서 비고 수정">${note ? esc(note) : '<span class="add mute">+ 비고</span>'}</td></tr>`;
     }
     $("bTable").innerHTML = h + "</tbody>";
     $("bTable").querySelectorAll("td.s[data-slot]").forEach(td => td.onclick = () => editCell(+td.dataset.no, td.dataset.slot));
     $("bTable").querySelectorAll("td.kind").forEach(td => td.onclick = () => openKind(+td.dataset.kno));
+    $("bTable").querySelectorAll("td.note[data-nno]").forEach(td => td.onclick = () => editNote(td));
 
     // 최근 입력 (새 것부터)
     const name = no => (students.find(s => s.no === no) || {}).name || "";
@@ -863,12 +869,40 @@ async function loadBoard(){
       const memo = l.memo ? `<br><span class="mute">메모: ${esc(l.memo)}</span>` : "";
       if(l.action === "hr_set") return `<div><b class="c">담임</b> ${where} ${esc(name(l.student_no))} ${stTxt(l.before)} → ${stTxt(l.after)}<span class="tm">${tm}</span>${memo}</div>`;
       if(l.action === "hr_override") return `<div><b class="c">담임 수정</b> ${where} ${esc(name(l.student_no))} · 교과(${esc(l.teacher || "")}) ${stTxt(l.before)} → ${stTxt(l.after)}<span class="tm">${tm}</span>${memo}</div>`;
+      if(l.action === "hr_note") return `<div><b class="c">비고</b> ${esc(name(l.student_no))} ${esc(l.before || "없음")} → ${esc(l.after || "없음")}<span class="tm">${tm}</span></div>`;
       if(l.action === "hr_kind") return `<div><b class="c">마감</b> ${esc(name(l.student_no))} ${esc(l.before || "없음")} → ${esc(l.after || "없음")}<span class="tm">${tm}</span>${memo}</div>`;
       const [label, cls] = act[l.action] || [l.action, "c"];
       return `<div><b class="${cls}">${esc(label)}</b> ${where}${l.action === "check" ? "" : ` ${esc(name(l.student_no))}`} · ${esc(l.teacher || "")}<span class="tm">${tm}</span></div>`;
     }).join("") : `<span class="mute">기록 없음</span>`;
   }catch(e){ $("bTable").innerHTML = `<tr><td class="err">불러오기 실패: ${esc(e.message)}</td></tr>`; }
 }
+/* ---------- 비고 직접 수정 ---------- */
+let NOTE_EDITING = false;
+function editNote(td){
+  if(td.querySelector("input")) return;
+  const no = +td.dataset.nno, B = BOARD;
+  const man = B.M.get(no), nd = B.D.get(no) || {};
+  const old = (man ? man.note : nd.note) || "";
+  const kind = man ? man.kind : nd.kind;
+  td.innerHTML = `<input type="text" maxlength="200" placeholder="Enter 저장 · Esc 취소">`;
+  const inp = td.querySelector("input"); inp.value = old; inp.focus(); inp.select();
+  NOTE_EDITING = true;
+  let done = false;
+  const finish = async save => {
+    if(done) return; done = true; NOTE_EDITING = false;
+    const v = inp.value.trim();
+    if(save && v !== old.trim()){
+      try{
+        must(await sb.from("day_manual").upsert({class_id:B.c, d:B.d, student_no:no, kind: kind || null, note: v, by_email:ME_EMAIL, at:new Date().toISOString()}));
+        must(await sb.from("mark_log").insert([logRow({no, action:"hr_note", before:old, after:v})]));
+      }catch(err){ alert("저장 실패: " + err.message); }
+    }
+    loadBoard();
+  };
+  inp.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); finish(true); } if(e.key === "Escape") finish(false); };
+  inp.onblur = () => finish(true);
+}
+
 /* ---------- 담임 직접 입력 ---------- */
 let BOARD = null;
 const logRow = (r) => ({class_id: BOARD.c, d: BOARD.d, student_no: r.no, period: /^\d+$/.test(r.slot || "") ? +r.slot : null, slot: r.slot || null,
@@ -981,7 +1015,7 @@ async function removeMark(d, p, no, kind){
 $("bDate").onchange = loadBoard;
 $("bToday").onclick = () => { $("bDate").value = kstToday(); loadBoard(); };
 function subscribe(){
-  const refresh = () => { clearTimeout(boardTimer); boardTimer = setTimeout(() => { if(tabNow() === "board") loadBoard(); }, 400); };
+  const refresh = () => { clearTimeout(boardTimer); boardTimer = setTimeout(() => { if(tabNow() === "board" && !NOTE_EDITING) loadBoard(); }, 400); };
   sb.channel("attend").on("postgres_changes", {event:"*", schema:"public", table:"teacher_marks"}, refresh)
                       .on("postgres_changes", {event:"*", schema:"public", table:"neis_marks"}, refresh)
                       .on("postgres_changes", {event:"*", schema:"public", table:"homeroom_marks"}, refresh).subscribe();
