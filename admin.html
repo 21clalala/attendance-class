@@ -167,6 +167,8 @@ dialog.kd::backdrop{background:rgba(0,0,0,.4)}
 dialog.fm{width:min(980px,calc(100% - 32px))}
 dialog.fm .fmbody{padding:14px 18px 18px}
 #fmTable{font-size:13px;min-width:760px}
+.seg{display:inline-flex}.seg .btn{border-radius:0}.seg .btn:first-child{border-radius:8px 0 0 8px}.seg .btn:last-child{border-radius:0 8px 8px 0;margin-left:-1px}
+.seg .btn.on{background:var(--ok);color:#fff;border-color:var(--ok)}
 #fmTable th,#fmTable td{padding:7px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line2)}
 #fmTable tr.off td{color:var(--mute)}
 #fmTable tr.flag td{background:#fdf1dc}
@@ -348,7 +350,8 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
         </div>
       </div>
       <p class="mute" style="margin:8px 0 0">비고에 "미제출"이 있고 신고서가 필요한 학생(질병, 출석인정 중 생리통·경조사·법정감염병)이 날짜별로 모입니다. 신고서를 받으면 [제출 완료]를 눌러 주세요. 남은 미제출이 있으면 수업이 있는 날 아침 08:00에 알림이 갑니다.</p>
-      <div class="row" style="margin-top:12px;justify-content:space-between;align-items:center"><div id="docSum" style="font-weight:600"></div><button class="btn" id="docMake">신고서 만들기</button></div>
+      <div class="row" style="margin-top:12px;justify-content:space-between;align-items:center"><div id="docSum" style="font-weight:600"></div>
+        <div class="row" style="gap:8px;align-items:center"><span class="seg" role="group" aria-label="정렬"><button class="btn ghost sm" data-dsort="no">번호순</button><button class="btn ghost sm" data-dsort="d">날짜순</button></span><button class="btn" id="docMake">신고서 만들기</button></div></div>
     </div>
     <div class="tbox"><table id="docTable"></table></div>
     <p id="docMsg"></p>
@@ -1225,6 +1228,8 @@ async function doApplyUpload(useFile){
 /* ---------- 출결신고서 ---------- */
 let DOC_M = null;   // "YYYY-MM"
 let DOC_DONE = false; // 제출 완료 건 보기
+let DOC_SORT = store.get("attend-doc-sort") === "d" ? "d" : "no";   // 기본: 번호순
+document.querySelectorAll("[data-dsort]").forEach(b => b.onclick = () => { DOC_SORT = b.dataset.dsort; store.set("attend-doc-sort", DOC_SORT); loadDoc(); });
 function monthRange(ym){
   const [y, m] = ym.split("-").map(Number);
   const last = new Date(y, m, 0).getDate();
@@ -1254,6 +1259,9 @@ async function loadDoc(){
       : `<span class="mute">이 달에는 미제출 기록이 없습니다.</span>`;
     if($("docDoneBtn")) $("docDoneBtn").onclick = () => { DOC_DONE = !DOC_DONE; loadDoc(); };
     rows = rows.filter(r => DOC_DONE || !r.submitted);
+    const bySort = DOC_SORT === "d" ? (a, b) => a.d.localeCompare(b.d) || a.student_no - b.student_no : (a, b) => a.student_no - b.student_no || a.d.localeCompare(b.d);
+    rows.sort(bySort); DOC_ROWS.sort(bySort);
+    document.querySelectorAll("[data-dsort]").forEach(b => { const on = b.dataset.dsort === DOC_SORT; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     $("docTable").closest(".tbox").classList.toggle("hidden", !rows.length);
     $("docTable").innerHTML = !rows.length ? "" :
       `<thead><tr><th>날짜</th><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">마감 · 사유</th><th>경과 수업일</th><th>신고서</th></tr></thead><tbody>` +
