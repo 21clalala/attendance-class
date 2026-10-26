@@ -299,14 +299,15 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
   <!-- 업로드 -->
   <section data-p="upload" class="hidden">
     <div class="card">
-      <h2><span class="clsName"></span> 나이스 일일출석부 올리기</h2>
+      <h2><span class="clsName"></span> 나이스 일일출석부 올리기 <span class="mute" style="font-size:14px;font-weight:500">· 처음 한 번 (명단 가져오기)</span></h2>
+      <p class="mute" style="margin:0 0 10px;font-size:14px">학생 명단(번호·이름)을 가져오기 위해 <b>한 번만</b> 올리면 됩니다. 출결은 [오늘 출석부]에서 직접 입력하세요. 나이스에 이미 입력된 지난 날짜 출결을 앱에도 넣고 싶을 때만 그 날짜 파일을 올리면 됩니다.</p>
       <div class="path" aria-label="나이스 메뉴 경로"><span>나이스</span><i>→</i><span>학급담임</span><i>→</i><span>학적</span><i>→</i><span>출결관리</span><i>→</i><span>일일출결관리</span><i>→</i><span>출력</span><i>→</i><span>디스크 모양</span><i>→</i><span class="last">XLS data</span></div>
       <label class="drop" id="uDrop" for="uFile">
         <b>파일을 여기로 끌어다 놓거나 눌러서 선택</b>
         <span class="mute">xls · xlsx · 파일의 날짜에 그대로 적용됩니다</span>
         <input type="file" id="uFile" accept=".xls,.xlsx">
       </label>
-      <p class="mute" style="margin:10px 0 0">같은 날짜로 다시 올리면 그날 나이스 표시가 새 파일 내용으로 바뀝니다. 교과선생님 입력은 그대로 남습니다.</p>
+      <p class="mute" style="margin:10px 0 0">올린 파일의 출결은 파일의 날짜에 적용됩니다. 같은 날짜로 다시 올리면 그날 나이스 값이 새 파일 내용으로 바뀌고, 담임·교과선생님 입력은 그대로 남습니다.</p>
       <div id="uResult" style="margin-top:12px"></div>
     </div>
     <div class="tbox hidden" id="uPrevBox"><table id="uPrev"></table></div>
@@ -412,35 +413,71 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
 
   <!-- 사용 도움말 -->
   <section data-p="help" class="hidden">
-    <div class="pagehead"><div><h1>사용 도움말</h1><span class="sub">교과선생님이 수업 시간에 QR로 출결을 체크하면, 새로 없는 학생이 생길 때 담임선생님 휴대폰으로 알림이 옵니다.</span></div></div>
+    <div class="pagehead"><div><h1>사용 도움말</h1><span class="sub">교과선생님은 수업 시간에 QR로 출결을 체크하고, 담임선생님은 이 페이지에서 확인·입력한 뒤 나이스에 반영합니다.</span></div></div>
     <div class="help">
       <nav class="card toc" aria-label="도움말 목차">
-        <a href="#h1">1. 처음 한 번 설정</a><a href="#h2">2. 매일 할 일</a><a href="#h3">3. 시간표 변경</a>
-        <a href="#h4">4. 교과선생님 사용법</a><a href="#h5">5. 출석부 읽는 법</a><a href="#h6">6. 자주 묻는 질문</a>
+        <a href="#h1">1. 처음 한 번 설정</a><a href="#h2">2. 매일 할 일</a><a href="#h3">3. 나이스에 반영하기</a>
+        <a href="#h4">4. 출결신고서</a><a href="#h5">5. 시간표 변경</a><a href="#h6">6. 교과선생님 사용법</a>
+        <a href="#h7">7. 출석부 읽는 법</a><a href="#h8">8. 자주 묻는 질문</a>
       </nav>
       <div class="body">
         <div class="card" id="h1"><h2>1. 처음 한 번 설정</h2>
-          <div class="step"><span class="n">1</span><div><b>학생 명단 확인</b><br><span class="mute" style="font-size:14px">[우리 반 설정] → 학생 명단. 한 줄에 "번호 이름". 자습반 학생은 이름 뒤에 <b>(자습반)</b>, 위탁 학생은 <b>(위탁)</b>을 붙이고 저장하세요. 둘 다 재실 인원에서 빠집니다. 나이스 파일을 처음 올리면 명단이 자동으로 채워집니다.</span></div></div>
+          <div class="step"><span class="n">1</span><div><b>학생 명단 가져오기 (나이스 파일 한 번만)</b><br><span class="mute" style="font-size:14px">나이스에서 일일출석부 파일을 내려받아 [나이스 업로드]에 <b>한 번</b> 끌어다 놓으면 번호·이름이 채워집니다. 그다음부터는 매일 올릴 필요가 없습니다.</span>
+            <div class="path"><span>나이스</span><i>→</i><span>학급담임</span><i>→</i><span>학적</span><i>→</i><span>출결관리</span><i>→</i><span>일일출결관리</span><i>→</i><span>출력</span><i>→</i><span>디스크 모양</span><i>→</i><span class="last">XLS data</span></div>
+            <span class="mute" style="font-size:14px">자습반·위탁 학생은 [우리 반 설정] → 학생 명단에서 이름 뒤에 <b>(자습반)</b>, <b>(위탁)</b>을 붙이고 저장하세요. 재실 인원에서 빠집니다. 전학 등으로 명단이 바뀌면 거기서 고치세요.</span></div></div>
           <div class="step"><span class="n">2</span><div><b>휴대폰으로 알림 받기</b><br><span class="mute" style="font-size:14px">App Store 또는 Play 스토어에서 <b>ntfy</b> 설치 → 앱에서 <b>+</b> → [우리 반 설정]에 있는 토픽 이름 입력 → Subscribe → [테스트 알림]을 눌러 알림이 오는지 확인하세요.</span></div></div>
-          <div class="step" style="margin-bottom:0"><span class="n">3</span><div><b>QR을 종이 출석부에 붙이기</b><br><span class="mute" style="font-size:14px">[우리 반 설정] → QR 인쇄. 학생이 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다.</span></div></div>
+          <div class="step"><span class="n">3</span><div><b>QR을 종이 출석부에 붙이기</b><br><span class="mute" style="font-size:14px">[우리 반 설정] → QR 인쇄. 학생이 찍지 않도록 출석부 안쪽에 붙이는 것을 권합니다.</span></div></div>
+          <div class="step" style="margin-bottom:0"><span class="n">4</span><div><b>나이스 반영 버튼 설치</b><br><span class="mute" style="font-size:14px">아래 <a href="#h3">3. 나이스에 반영하기</a>의 설치 순서를 따라 하세요.</span></div></div>
         </div>
-        <div class="card" id="h2"><h2>2. 매일 할 일 — 나이스 일일출석부 올리기</h2>
-          <p class="mute" style="font-size:14px;margin:0">아침에 한 번, 출결 변동이 생기면 중간에도 올리세요. 결석생이 없는 날도 올려야 업로드한 것으로 표시됩니다.</p>
-          <div class="path"><span>나이스</span><i>→</i><span>학급담임</span><i>→</i><span>학적</span><i>→</i><span>출결관리</span><i>→</i><span>일일출결관리</span><i>→</i><span>출력</span><i>→</i><span>디스크 모양</span><i>→</i><span class="last">XLS data</span></div>
-          <p class="mute" style="font-size:14px;margin:0">받은 파일을 [나이스 업로드]에 끌어다 놓으면 끝입니다. 다른 반 파일이면 경고가 뜨고 적용되지 않습니다.</p>
+
+        <div class="card" id="h2"><h2>2. 매일 할 일 — [오늘 출석부]에서 직접 입력</h2>
+          <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
+            <li><b>교시 칸</b>을 누르면 "/"가 찍히고, 다시 누르면 지워집니다. 교과선생님이 찍은 "/"도 담임이 바꿀 수 있고 기록이 남습니다.</li>
+            <li><b>마감 칸</b>을 누르면 종류(결석·지각·조퇴·결과)와 구분(질병·미인정·기타·출석인정), 사유를 고르는 창이 뜹니다. <b>결석</b>을 적용하면 조회~종례가 모두 "/"로 채워지고, 지각·조퇴·결과는 해당 교시를 직접 눌러 "/"를 찍습니다.</li>
+            <li><b>비고 칸</b>을 누르면 바로 고칠 수 있습니다. Enter 저장, Esc 취소.</li>
+            <li><b>조회 시간</b>(08:00~08:50)에는 교실 QR을 찍어 휴대폰으로도 입력할 수 있습니다. 담임 입력이라 알림은 가지 않습니다.</li>
+            <li>날짜를 바꾸면 지난 날짜도 같은 방법으로 고칠 수 있습니다.</li>
+          </ul>
         </div>
-        <div class="card" id="h3"><h2>3. 시간표 변경 (교체·대강·단축수업)</h2>
+
+        <div class="card" id="h3"><h2>3. 나이스에 반영하기</h2>
+          <p class="mute" style="font-size:14px;margin:0 0 10px">앱에 입력한 출결을 하루씩 나이스 일일출결관리 화면에 채워 줍니다. <b>채우기만 하고 [저장]은 선생님이 직접</b> 누릅니다. 나이스를 쓰는 컴퓨터(크롬·엣지)에서 합니다.</p>
+          <h3 style="font-size:15px;margin:14px 0 6px">설치 (처음 한 번)</h3>
+          <div class="step"><span class="n">1</span><div><b>즐겨찾기 막대 켜기</b><br><span class="mute" style="font-size:14px">나이스를 여는 브라우저에서 <b>Ctrl + Shift + B</b></span></div></div>
+          <div class="step"><span class="n">2</span><div><b>[출결 반영] 버튼 설치</b><br><span class="mute" style="font-size:14px"><a href="neis/" target="_blank">나이스 반영 도구 페이지</a>를 열고, 초록 <b>[출결 반영]</b> 버튼을 즐겨찾기 막대로 <b>끌어다 놓습니다</b>(누르지 말고 끌기). 한 번 설치하면 다시 설치할 필요가 없습니다.</span></div></div>
+          <div class="step"><span class="n">3</span><div><b>같은 브라우저에서 이 페이지에 로그인</b><br><span class="mute" style="font-size:14px">나이스를 엣지로 쓰면 엣지에서, 크롬으로 쓰면 크롬에서 로그인해 두세요. 로그인은 유지됩니다.</span></div></div>
+          <h3 style="font-size:15px;margin:14px 0 6px">반영 (하루씩)</h3>
+          <div class="step"><span class="n">1</span><div><b>나이스 화면 열기</b><br><span class="mute" style="font-size:14px">나이스 → 학급담임 → 출결관리 → <b>일일출결관리(담임용)</b> → 날짜 선택 → [조회]</span></div></div>
+          <div class="step"><span class="n">2</span><div><b>즐겨찾기의 [출결 반영] 클릭</b><br><span class="mute" style="font-size:14px">옆에 반영 창이 뜹니다. 처음에 "팝업 차단" 안내가 나오면 주소창 오른쪽 아이콘에서 <b>허용</b>한 뒤 다시 누르세요.</span></div></div>
+          <div class="step"><span class="n">3</span><div><b>비교표 확인</b><br><span class="mute" style="font-size:14px">나이스와 앱이 다른 학생만 나옵니다. <b>채움</b> = 나이스가 비어 있어 새로 넣음, <b>바꿈</b> = 앱에서 바뀐 내용, <b>충돌</b> = 나이스에 이미 다른 내용이 있음. 충돌 학생은 "나이스 그대로 두기 / 앱 내용으로 바꾸기" 중 고르세요(기본은 나이스 그대로).</span></div></div>
+          <div class="step"><span class="n">4</span><div><b>[나이스에 채우기] → "이대로 반영할까요?" → [반영]</b><br><span class="mute" style="font-size:14px">나이스 화면에 채워지고, 채운 학생 줄이 선택(색칠)됩니다. 반영 창이 나이스를 다시 읽어 제대로 들어갔는지 대조해 줍니다.</span></div></div>
+          <div class="step"><span class="n">5</span><div><b>나이스에서 확인하고 [저장]</b><br><span class="mute" style="font-size:14px">이상하면 저장하지 말고 나이스 [조회]를 다시 누르세요. 채운 내용이 사라지고 원래대로 돌아갑니다.</span></div></div>
+          <div class="step" style="margin-bottom:0"><span class="n">6</span><div><b>[조회] → [다시 확인] → [반영 완료]</b><br><span class="mute" style="font-size:14px">저장 후 나이스 [조회]를 한 번 더 누르고 반영 창의 [다시 확인]으로 실제 저장됐는지 확인한 뒤 [반영 완료]. [오늘 출석부] 제목 줄에 "나이스 반영 ✓"가 남습니다.</span></div></div>
+          <ul class="mute" style="font-size:13px;margin:12px 0 0;padding-left:20px">
+            <li>반영 창은 나이스의 [저장]·[출결마감]을 절대 누르지 않습니다.</li>
+            <li>출결마감된 날짜는 채우지 않습니다. [마감취소] 후 다시 하세요.</li>
+            <li>나이스와 앱의 번호·이름이 다르면 멈춥니다. 명단을 맞춘 뒤 다시 하세요.</li>
+          </ul>
+        </div>
+
+        <div class="card" id="h4"><h2>4. 출결신고서</h2>
+          <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
+            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서] 메뉴에 월별로 모입니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 미인정은 신고서가 필요 없어 빠집니다.</li>
+            <li>신고서를 받으면 [제출 완료]를 누르세요. 목록에서 사라집니다(잘못 눌렀으면 [제출 완료 보기]에서 취소).</li>
+            <li>남은 미제출이 있으면 수업이 있는 날 아침 08:00에 휴대폰으로 알림이 옵니다.</li>
+          </ul>
+        </div>
+
+        <div class="card" id="h5"><h2>5. 시간표 변경 (교체·대강·단축수업)</h2>
           <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
             <li>시간표와 수업 교환은 매일 아침 컴시간알리미에서 자동으로 받아 옵니다.</li>
             <li>급한 교체·대강: [시간표 변경] → 날짜 선택 → 그 교시 <b>교체·대강</b> 칸에 선생님 이름 → 저장.</li>
             <li>단축수업: 같은 화면에서 시각을 고치거나 수업 없는 교시의 체크를 끄고 저장. 우리 반에만 적용됩니다.</li>
-            <li>담임 시간(기본: 금요일 5·6교시)에는 담임선생님 휴대폰에서 체크합니다.</li>
-            <li>조회 시간(08:00~08:50)에는 담임선생님이 교실 QR을 찍어 조회 출결을 입력할 수 있습니다. 담임 직접 입력으로 기록되고 알림은 가지 않습니다. (반·관리자에 담임 이름이 있어야 열립니다)</li>
-            <li>출결신고서: 비고에 "미제출"이 있으면 [출결신고서] 메뉴에 월별로 모입니다(미인정 제외). 받으면 [제출 완료]를 누르세요. 남은 건이 있으면 수업일 아침 08:00에 알림이 갑니다.</li>
-            <li>나이스 반영: <a href="neis/" target="_blank">나이스 반영 도구 페이지</a>에서 [출결 반영] 버튼을 즐겨찾기에 설치하고, 나이스 일일출결관리 화면에서 누릅니다. 채우기만 하고 저장은 직접 누릅니다.</li>
+            <li>담임 시간(기본: 금요일 5·6교시)과 조회 시간에는 담임선생님이 체크합니다. 반·관리자에 담임 이름이 있어야 합니다.</li>
           </ul>
         </div>
-        <div class="card" id="h4"><h2>4. 교과선생님 사용법 (전달용)</h2>
+
+        <div class="card" id="h6"><h2>6. 교과선생님 사용법 (전달용)</h2>
           <ol class="mute" style="font-size:14px;margin:0;padding-left:20px">
             <li>종이 출석부의 QR을 휴대폰으로 찍습니다.</li>
             <li>처음 한 번만 본인 이름을 고릅니다. 잘못 골랐으면 오른쪽 위 [변경].</li>
@@ -449,17 +486,22 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li>변경이 없어도 [저장]을 누르면 "확인"으로 기록됩니다.</li>
           </ol>
         </div>
-        <div class="card" id="h5"><h2>5. 출석부 읽는 법</h2>
+
+        <div class="card" id="h7"><h2>7. 출석부 읽는 법</h2>
           <div class="keys">
-            <div><b style="color:#6b7280">/</b>나이스에서 올린 결석·지각·조퇴</div>
-            <div style="background:var(--red-soft);border-color:var(--red-line)"><b style="color:var(--red)">/</b>교과선생님이 새로 찍음 → 알림</div>
-            <div style="background:var(--accent-soft2);border-color:var(--accent-line)"><b style="color:var(--ok);font-size:15px">출석</b>나이스 "/"를 교과선생님이 해제</div>
+            <div style="background:#eef1ff;border-color:#c9d1ff"><b style="color:#2f3e9e">/</b>담임이 입력</div>
+            <div style="background:var(--red-soft);border-color:var(--red-line)"><b style="color:var(--red)">/</b>교과선생님이 찍음 → 알림</div>
+            <div style="background:var(--accent-soft2);border-color:var(--accent-line)"><b style="color:var(--ok);font-size:15px">출석</b>"/"를 교과선생님이 해제</div>
+            <div><b style="color:#6b7280">/</b>나이스 파일에서 올라온 값</div>
           </div>
-          <p class="mute" style="font-size:14px;margin:12px 0 0"><b>재실 인원</b> = 재적 − 자습반 − 위탁 − "/" 표시 학생. 빨간 "/"와 "출석"은 눌러서 지울 수 있습니다(알림 없음).</p>
+          <p class="mute" style="font-size:14px;margin:12px 0 0"><b>재실 인원</b> = 재적 − 자습반 − 위탁 − "/" 표시 학생. 오른쪽 [최근 입력]에 누가 언제 무엇을 바꿨는지 남습니다.</p>
         </div>
-        <div class="card" id="h6"><h2>6. 자주 묻는 질문</h2>
+
+        <div class="card" id="h8"><h2>8. 자주 묻는 질문</h2>
           <details class="faq"><summary>알림이 오지 않아요</summary><p>ntfy 앱에 구독한 토픽 이름이 [우리 반 설정]의 토픽과 한 글자도 다르지 않은지 확인하고, [테스트 알림]을 다시 눌러 보세요. 휴대폰 설정에서 ntfy 알림이 꺼져 있지 않은지도 확인하세요.</p></details>
           <details class="faq"><summary>교과선생님 이름이 목록에 없어요</summary><p>우리 반에 들어오는 선생님만 나옵니다. 대강이면 [시간표 변경]에 그 선생님 이름을 넣으면 목록에 생깁니다.</p></details>
+          <details class="faq"><summary>[출결 반영]을 눌러도 아무 반응이 없어요</summary><p>나이스 <b>일일출결관리(담임용)</b> 화면에서 [조회]한 뒤 눌러야 합니다. 팝업 차단 아이콘이 주소창에 보이면 허용하세요. 반영 창에 "로그인되어 있지 않습니다"가 나오면 같은 브라우저에서 이 페이지에 로그인하세요.</p></details>
+          <details class="faq"><summary>반영 창에 "충돌"이 많이 나와요</summary><p>나이스에 이미 직접 입력해 둔 날이면 그렇습니다. 나이스 내용이 맞으면 "나이스 그대로 두기"를, 앱 내용이 맞으면 "앱 내용으로 바꾸기"를 고르세요.</p></details>
           <details class="faq" style="border-bottom:1px solid var(--line2)"><summary>QR이 학생에게 노출됐어요</summary><p>[우리 반 설정] → [주소 새로 만들기] 후 QR을 다시 인쇄하세요. 이전 QR은 바로 열리지 않게 됩니다.</p></details>
         </div>
       </div>
