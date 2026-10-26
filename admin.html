@@ -1050,7 +1050,14 @@ function kdSync(){
   $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
 }
 document.querySelectorAll('input[name="kdT"], input[name="kdC"]').forEach(r => r.onchange = kdSync);
-document.querySelectorAll("[data-miss]").forEach(x => x.onchange = () => { if(x.checked) document.querySelectorAll("[data-miss]").forEach(y => { if(y !== x) y.checked = false; }); });
+// 응시확인증·보고서를 고르면 사유 칸을 정해진 문구로 채움 (직접 고칠 수 있음)
+const MISS_REASON = {"응시확인증": "대학별고사 응시", "보고서": "학교장허가 교외체험학습"};
+document.querySelectorAll("[data-miss]").forEach(x => x.onchange = () => {
+  if(x.checked) document.querySelectorAll("[data-miss]").forEach(y => { if(y !== x) y.checked = false; });
+  const r = $("kdReason"), cur = r.value.trim(), preset = Object.values(MISS_REASON);
+  if(x.checked && MISS_REASON[x.dataset.miss] && (!cur || preset.includes(cur))) r.value = MISS_REASON[x.dataset.miss];
+  if(!x.checked && preset.includes(cur)) r.value = "";
+});
 function openKind(no){
   const s = BOARD.students.find(x => x.no === no); if(!s) return;
   const man = BOARD.M.get(no), nd = BOARD.D.get(no) || {};
@@ -1073,7 +1080,9 @@ $("kdApply").onclick = async () => {
   const t = (document.querySelector('input[name="kdT"]:checked') || {}).value;
   const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
   if(!t || !c){ alert("종류와 구분을 모두 선택하세요."); return; }
-  const kind = c + t, reason = $("kdReason").value.trim();
+  const kind = c + t;
+  const missSel = (document.querySelector("[data-miss]:checked:not(:disabled)") || {}).dataset?.miss;
+  const reason = $("kdReason").value.trim() || (missSel && typeof MISS_REASON !== "undefined" ? MISS_REASON[missSel] || "" : "");
   const miss = (document.querySelector("[data-miss]:checked:not(:disabled)") || {}).dataset?.miss;
   const note = `${kind}(${reason})` + (!miss ? "" : miss === "출결신고서" ? (c === "출석인정" ? " 출결신고서 미제출" : " 미제출") : ` ${miss} 미제출`);
   const no = KD.no, B = BOARD;
