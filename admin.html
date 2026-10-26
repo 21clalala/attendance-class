@@ -167,7 +167,7 @@ dialog.kd::backdrop{background:rgba(0,0,0,.4)}
 dialog.fm{width:min(980px,calc(100% - 32px))}
 dialog.fm .fmbody{padding:14px 18px 18px}
 #fmTable{font-size:13px;min-width:760px}
-.seg{display:inline-flex}.seg .btn{border-radius:0}.seg .btn:first-child{border-radius:8px 0 0 8px}.seg .btn:last-child{border-radius:0 8px 8px 0;margin-left:-1px}
+.seg{display:inline-flex}.seg .btn{border-radius:0}.seg .btn:first-child{border-radius:8px 0 0 8px}.seg .btn:last-child{border-radius:0 8px 8px 0}.seg .btn + .btn{margin-left:-1px}
 .seg .btn.on{background:var(--ok);color:#fff;border-color:var(--ok)}
 #fmTable th,#fmTable td{padding:7px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line2)}
 #fmTable tr.off td{color:var(--mute)}
@@ -249,7 +249,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       <button data-t="board" class="on">오늘 출석부</button>
       <button data-t="upload">나이스 업로드</button>
       <button data-t="day">시간표 변경</button>
-      <button data-t="doc">출결신고서</button>
+      <button data-t="doc">출결신고서(증빙서류)</button>
       <button data-t="set">우리 반 설정</button>
       <button data-t="help">사용 도움말</button>
       <details class="more hidden" id="schoolMenu"><summary>학교 관리</summary>
@@ -315,7 +315,10 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
         <label><input type="radio" name="kdC" value="질병"> 질병</label><label><input type="radio" name="kdC" value="미인정"> 미인정</label>
         <label><input type="radio" name="kdC" value="기타"> 기타</label><label><input type="radio" name="kdC" value="출석인정"> 출석인정</label></td></tr>
       <tr><th>사유</th><td><input type="text" id="kdReason" maxlength="60" placeholder="예: 감기, 병원 진료"></td></tr>
-      <tr><th>신고서</th><td><label><input type="checkbox" id="kdMiss"> 출결신고서 미제출</label></td></tr>
+      <tr><th>증빙서류</th><td style="display:flex;flex-direction:column;gap:4px">
+        <label><input type="checkbox" data-miss="출결신고서" id="kdMiss"> 출결신고서 미제출</label>
+        <label><input type="checkbox" data-miss="응시확인증"> 응시확인증 미제출 <span class="mute" style="font-size:12px">(대학별고사)</span></label>
+        <label><input type="checkbox" data-miss="보고서"> 보고서 미제출 <span class="mute" style="font-size:12px">(교외체험학습)</span></label></td></tr>
     </table>
     <p class="mute" id="kdHint" style="margin:10px 18px 0"></p>
     <div class="acts"><button class="btn" id="kdApply">적용</button><button class="btn danger" id="kdClear">마감 지우기</button><button class="btn ghost" id="kdClose">닫기</button></div>
@@ -342,16 +345,17 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
   <section data-p="doc" class="hidden">
     <div class="card">
       <div class="row" style="justify-content:space-between;align-items:center">
-        <h2 style="margin:0"><span class="clsName"></span> 출결신고서 미제출</h2>
+        <h2 style="margin:0"><span class="clsName"></span> 증빙서류 미제출</h2>
         <div class="row" style="gap:6px;align-items:center">
           <button class="btn ghost sm" id="docPrev" aria-label="이전 달">◀</button>
           <b id="docMonth" style="min-width:86px;text-align:center"></b>
           <button class="btn ghost sm" id="docNext" aria-label="다음 달">▶</button>
         </div>
       </div>
-      <p class="mute" style="margin:8px 0 0">비고에 "미제출"이 있고 신고서가 필요한 학생(질병, 출석인정 중 생리통·경조사·법정감염병)이 날짜별로 모입니다. 신고서를 받으면 [제출 완료]를 눌러 주세요. 남은 미제출이 있으면 수업이 있는 날 아침 08:00에 알림이 갑니다.</p>
+      <p class="mute" style="margin:8px 0 0">비고에 "미제출"이 있는 학생이 서류별로 모입니다. <b>출결신고서</b>: 질병, 출석인정 중 생리통·경조사·법정감염병 · <b>응시확인증</b>: 출석인정 대학별고사(또는 비고에 "응시확인증 미제출") · <b>보고서</b>: 교외체험학습(또는 비고에 "보고서 미제출"). 받으면 [제출 완료]를 눌러 주세요. 남은 미제출이 있으면 수업이 있는 날 아침 08:00에 알림이 갑니다.</p>
+      <div class="seg" role="group" aria-label="서류 종류" style="margin-top:12px"><button class="btn ghost sm" data-dkind="전체">전체</button><button class="btn ghost sm" data-dkind="출결신고서">출결신고서</button><button class="btn ghost sm" data-dkind="응시확인증">응시확인증</button><button class="btn ghost sm" data-dkind="보고서">보고서</button></div>
       <div class="row" style="margin-top:12px;justify-content:space-between;align-items:center"><div id="docSum" style="font-weight:600"></div>
-        <div class="row" style="gap:8px;align-items:center"><span class="seg" role="group" aria-label="정렬"><button class="btn ghost sm" data-dsort="no">번호순</button><button class="btn ghost sm" data-dsort="d">날짜순</button></span><button class="btn" id="docMake">신고서 만들기</button></div></div>
+        <div class="row" style="gap:8px;align-items:center"><span class="seg" role="group" aria-label="정렬"><button class="btn ghost sm" data-dsort="no">번호순</button><button class="btn ghost sm" data-dsort="d">날짜순</button></span><button class="btn" id="docMake">출결신고서 만들기</button></div></div>
     </div>
     <div class="tbox"><table id="docTable"></table></div>
     <p id="docMsg"></p>
@@ -443,7 +447,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <div class="help">
       <nav class="card toc" aria-label="도움말 목차">
         <a href="#h1">1. 처음 한 번 설정</a><a href="#h2">2. 매일 할 일</a><a href="#h3">3. 나이스에 반영하기</a>
-        <a href="#h4">4. 출결신고서</a><a href="#h5">5. 시간표 변경</a><a href="#h6">6. 교과선생님 사용법</a>
+        <a href="#h4">4. 출결신고서·증빙서류</a><a href="#h5">5. 시간표 변경</a><a href="#h6">6. 교과선생님 사용법</a>
         <a href="#h7">7. 출석부 읽는 법</a><a href="#h8">8. 자주 묻는 질문</a>
       </nav>
       <div class="body">
@@ -487,10 +491,10 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
           </ul>
         </div>
 
-        <div class="card" id="h4"><h2>4. 출결신고서</h2>
+        <div class="card" id="h4"><h2>4. 출결신고서·증빙서류</h2>
           <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
-            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서] 메뉴에 월별로 모입니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 신고서가 필요한 경우(질병, 출석인정 중 생리통·경조사·법정감염병)만 모이고, 미인정·기타·그 밖의 출석인정(대회 등)은 빠집니다.</li>
-            <li><b>신고서 출력:</b> [출결신고서] → [신고서 만들기]를 누르면 그 달 미제출 학생의 신고서를 한 파일(HWPX)로 만듭니다. 한 날짜만 필요하면 [오늘 출석부] → [신고서 출력]. 한글에서 열어 인쇄하세요. 사유 체크는 비고 괄호 안 내용으로 자동 체크되고, [고치기]로 바꿀 수 있습니다. 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</li>
+            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서(증빙서류)] 메뉴에 월별·서류별(출결신고서/응시확인증/보고서)로 모입니다. 대학별고사는 응시확인증, 교외체험학습은 보고서로 자동 구분되고, 마감 창에서 직접 고를 수도 있습니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 신고서가 필요한 경우(질병, 출석인정 중 생리통·경조사·법정감염병)만 모이고, 미인정·기타·그 밖의 출석인정(대회 등)은 빠집니다.</li>
+            <li><b>신고서 출력:</b> [출결신고서(증빙서류)] → [출결신고서 만들기]를 누르면 그 달 미제출 학생의 신고서를 한 파일(HWPX)로 만듭니다. 한 날짜만 필요하면 [오늘 출석부] → [신고서 출력]. 한글에서 열어 인쇄하세요. 사유 체크는 비고 괄호 안 내용으로 자동 체크되고, [고치기]로 바꿀 수 있습니다. 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</li>
             <li>신고서를 받으면 [제출 완료]를 누르세요. 목록에서 사라집니다(잘못 눌렀으면 [제출 완료 보기]에서 취소).</li>
             <li>남은 미제출이 있으면 수업이 있는 날 아침 08:00에 휴대폰으로 알림이 옵니다.</li>
           </ul>
@@ -1038,12 +1042,15 @@ function kdSync(){
   const t = (document.querySelector('input[name="kdT"]:checked') || {}).value;
   document.querySelectorAll('#kdCat label').forEach(l => { l.classList.toggle("off", !t); l.querySelector("input").disabled = !t; });
   const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
-  const noDoc = c === "미인정" || c === "기타";
-  $("kdMiss").disabled = noDoc; if(noDoc) $("kdMiss").checked = false;
-  $("kdMiss").closest("label").classList.toggle("off", noDoc);
+  // 출결신고서: 미인정·기타는 불필요 / 응시확인증·보고서: 출석인정일 때만
+  document.querySelectorAll("[data-miss]").forEach(x => {
+    const off = x.dataset.miss === "출결신고서" ? (!c || c === "미인정" || c === "기타") : c !== "출석인정";
+    x.disabled = off; if(off) x.checked = false; x.closest("label").classList.toggle("off", off);
+  });
   $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
 }
 document.querySelectorAll('input[name="kdT"], input[name="kdC"]').forEach(r => r.onchange = kdSync);
+document.querySelectorAll("[data-miss]").forEach(x => x.onchange = () => { if(x.checked) document.querySelectorAll("[data-miss]").forEach(y => { if(y !== x) y.checked = false; }); });
 function openKind(no){
   const s = BOARD.students.find(x => x.no === no); if(!s) return;
   const man = BOARD.M.get(no), nd = BOARD.D.get(no) || {};
@@ -1055,7 +1062,8 @@ function openKind(no){
   document.querySelectorAll('input[name="kdC"]').forEach(r => r.checked = r.value === c);
   const m = note.match(/\(([^()]*)\)/);
   $("kdReason").value = m ? m[1] : "";
-  $("kdMiss").checked = /미제출/.test(note);
+  const dk = docKind(kind, note);
+  document.querySelectorAll("[data-miss]").forEach(x => x.checked = x.dataset.miss === dk);
   $("kdClear").classList.toggle("hidden", !man);
   kdSync();
   $("kindDlg").showModal();
@@ -1066,7 +1074,8 @@ $("kdApply").onclick = async () => {
   const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
   if(!t || !c){ alert("종류와 구분을 모두 선택하세요."); return; }
   const kind = c + t, reason = $("kdReason").value.trim();
-  const note = `${kind}(${reason})` + ($("kdMiss").checked && c !== "미인정" && c !== "기타" ? " 미제출" : "");
+  const miss = (document.querySelector("[data-miss]:checked:not(:disabled)") || {}).dataset?.miss;
+  const note = `${kind}(${reason})` + (!miss ? "" : miss === "출결신고서" ? (c === "출석인정" ? " 출결신고서 미제출" : " 미제출") : ` ${miss} 미제출`);
   const no = KD.no, B = BOARD;
   try{
     must(await sb.from("day_manual").upsert({class_id:B.c, d:B.d, student_no:no, kind, note, by_email:ME_EMAIL, at:new Date().toISOString()}));
@@ -1229,6 +1238,8 @@ async function doApplyUpload(useFile){
 let DOC_M = null;   // "YYYY-MM"
 let DOC_DONE = false; // 제출 완료 건 보기
 let DOC_SORT = store.get("attend-doc-sort") === "d" ? "d" : "no";   // 기본: 번호순
+let DOC_KIND = "전체";
+document.querySelectorAll("[data-dkind]").forEach(b => b.onclick = () => { DOC_KIND = b.dataset.dkind; loadDoc(); });
 document.querySelectorAll("[data-dsort]").forEach(b => b.onclick = () => { DOC_SORT = b.dataset.dsort; store.set("attend-doc-sort", DOC_SORT); loadDoc(); });
 function monthRange(ym){
   const [y, m] = ym.split("-").map(Number);
@@ -1239,8 +1250,21 @@ function shiftMonth(ym, n){
   const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+// 증빙서류 종류 (DB의 doc_kind 와 같은 규칙)
+function docKind(kind, note){
+  const n = String(note || "").replace(/\s/g, ""), cat = (kind || "").trim() || String(note || "").trim();
+  if(!/미제출/.test(n)) return null;
+  if(/응시확인증미제출/.test(n)) return "응시확인증";
+  if(/보고서미제출/.test(n)) return "보고서";
+  if(/신고서미제출/.test(n)) return "출결신고서";
+  if(cat.startsWith("출석인정") && /(대학별고사|대학별|수시|면접|논술|실기|적성고사|응시|입시|전형)/.test(n)) return "응시확인증";
+  if(cat.startsWith("출석인정") && /(체험학습|교외체험|현장체험)/.test(n)) return "보고서";
+  if(cat.startsWith("질병")) return "출결신고서";
+  if(cat.startsWith("출석인정") && /(생리|경조|조문|장례|사망|결혼|혼례|[부모형제매자손]상|조부|조모|외조|코로나|인플루엔자|독감|법정|감염)/.test(n)) return "출결신고서";
+  return null;
+}
 const docLabel = (kind, note) => {
-  const n = (note || "").replace(/\s*미제출\s*/g, " ").trim();
+  const n = (note || "").replace(/\s*(출결신고서|신고서|응시확인증|보고서)?\s*미제출\s*/g, " ").trim();
   return !n ? (kind || "") : (!kind || n.startsWith(kind)) ? n : `${kind}(${n})`;
 };
 async function loadDoc(){
@@ -1250,8 +1274,14 @@ async function loadDoc(){
   $("docMonth").textContent = `${+ym.slice(0, 4)}년 ${+ym.slice(5)}월`;
   try{
     let rows = must(await sb.rpc("doc_list", {p_class: c, p_from: from, p_to: to}));
-    DOC_ROWS = rows.slice();
     if(c !== CUR || ym !== DOC_M) return;
+    const all = rows;
+    document.querySelectorAll("[data-dkind]").forEach(b => {
+      const k = b.dataset.dkind, n = all.filter(r => !r.submitted && (k === "전체" || r.doc === k)).length;
+      b.textContent = k + (n ? ` ${n}` : ""); b.classList.toggle("on", k === DOC_KIND); b.setAttribute("aria-pressed", k === DOC_KIND);
+    });
+    rows = all.filter(r => DOC_KIND === "전체" || r.doc === DOC_KIND);
+    DOC_ROWS = all.filter(r => r.doc === "출결신고서");
     const left = rows.filter(r => !r.submitted).length;
     const done = rows.length - left;
     $("docSum").innerHTML = rows.length ? `미제출 <span class="err">${left}건</span> · 제출 완료 ${done}건` +
@@ -1264,9 +1294,9 @@ async function loadDoc(){
     document.querySelectorAll("[data-dsort]").forEach(b => { const on = b.dataset.dsort === DOC_SORT; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     $("docTable").closest(".tbox").classList.toggle("hidden", !rows.length);
     $("docTable").innerHTML = !rows.length ? "" :
-      `<thead><tr><th>날짜</th><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">마감 · 사유</th><th>경과 수업일</th><th>신고서</th></tr></thead><tbody>` +
+      `<thead><tr><th>날짜</th><th>번호</th><th style="text-align:left">이름</th><th>서류</th><th style="text-align:left">마감 · 사유</th><th>경과 수업일</th><th>제출</th></tr></thead><tbody>` +
       rows.map(r => `<tr${r.submitted ? ' style="opacity:.6"' : ""}><td>${fmtDate(r.d)}</td><td>${r.student_no}</td><td style="text-align:left">${esc(r.name || "")}</td>` +
-        `<td style="text-align:left">${esc(docLabel(r.kind, r.note))}</td><td>${r.submitted ? "—" : r.elapsed + "일"}</td>` +
+        `<td><span class="pill">${esc(r.doc)}</span></td><td style="text-align:left">${esc(docLabel(r.kind, r.note))}</td><td>${r.submitted ? "—" : r.elapsed + "일"}</td>` +
         `<td>${r.submitted ? `<button class="btn ghost sm" data-undoc="${r.d}|${r.student_no}" title="${esc(new Date(r.submitted_at).toLocaleString("ko-KR"))}">✓ 제출함 · 취소</button>`
                            : `<button class="btn sm" data-doc="${r.d}|${r.student_no}">제출 완료</button>`}</td></tr>`).join("") + "</tbody>";
   }catch(e){ say("docMsg", "불러오기 실패: " + e.message, "err"); }
