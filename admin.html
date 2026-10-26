@@ -164,6 +164,18 @@ td.note input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;paddi
 @media (prefers-color-scheme: dark){ td.s.h{background:#22284a} .mine{background:#22284a;color:#aab6ff} }
 dialog.kd{border:0;border-radius:16px;padding:0;width:min(440px,calc(100% - 32px));background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
 dialog.kd::backdrop{background:rgba(0,0,0,.4)}
+dialog.fm{width:min(980px,calc(100% - 32px))}
+dialog.fm .fmbody{padding:14px 18px 18px}
+#fmTable{font-size:13px;min-width:760px}
+#fmTable th,#fmTable td{padding:7px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line2)}
+#fmTable tr.off td{color:var(--mute)}
+#fmTable tr.flag td{background:#fdf1dc}
+#fmTable .ed{display:grid;gap:8px;padding:6px 0}
+#fmTable .ed-row{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+#fmTable .ed-h{color:var(--mute);font-size:12px;width:2.6em}
+#fmTable .opt{display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+#fmTable .ed-text{font:inherit;font-size:13px;width:9em;padding:2px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+#fmTable .lnk,#fmTpl button{background:none;border:0;padding:0 0 0 6px;color:var(--ok);font:inherit;cursor:pointer;text-decoration:underline}
 .kd .top{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700}
 .kd .top button{background:none;border:0;font-size:20px;cursor:pointer;color:var(--mute);line-height:1}
 .kd table{border-top:2px solid var(--ink);margin:16px 18px 0;width:calc(100% - 36px)}
@@ -264,7 +276,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <div class="card setup hidden" id="setupCard"></div>
     <div class="pagehead">
       <div><h1 id="bTitle">오늘 출석부</h1><span class="sub" id="bInfo"></span></div>
-      <div class="row"><input type="date" id="bDate" aria-label="날짜"><button class="btn ghost" id="bToday">오늘</button></div>
+      <div class="row"><input type="date" id="bDate" aria-label="날짜"><button class="btn ghost" id="bToday">오늘</button><button class="btn ghost" id="bForm">신고서 출력</button></div>
     </div>
     <ol class="tl" id="bTimeline" aria-label="교시별 체크 현황"></ol>
     <div class="countbar" id="bCount"></div>
@@ -279,6 +291,17 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     </div>
   </section>
 
+  <dialog class="kd fm" id="formDlg" aria-labelledby="fmTitle">
+    <div class="top"><span id="fmTitle">출결신고서 만들기</span><button type="button" id="fmX" aria-label="닫기">×</button></div>
+    <div class="fmbody">
+      <p class="mute" id="fmSub" style="margin:0 0 10px;font-size:13px"></p>
+      <div class="tbox" style="max-height:52vh;overflow:auto"><table id="fmTable"></table></div>
+      <div class="mute" id="fmTpl" style="font-size:12px;margin-top:10px;display:grid;gap:2px"></div>
+      <div class="row" style="margin-top:12px;align-items:center"><button class="btn" id="fmGo" disabled>신고서 만들기</button><span id="fmMsg" style="font-size:13px"></span></div>
+      <p class="mute" style="font-size:12px;margin:8px 0 0">HWPX 파일로 내려받아 한글에서 열어 인쇄합니다. 학생당 1쪽, 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</p>
+    </div>
+    <input type="file" id="fmTplFile" accept=".hwpx" hidden><input type="file" id="fmTplFile2" accept=".hwpx" hidden>
+  </dialog>
   <dialog class="kd" id="kindDlg" aria-labelledby="kdTitle">
     <div class="top"><span id="kdTitle">출결마감구분</span><button type="button" id="kdX" aria-label="닫기">×</button></div>
     <div class="who" id="kdWho"></div>
@@ -324,8 +347,8 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
           <button class="btn ghost sm" id="docNext" aria-label="다음 달">▶</button>
         </div>
       </div>
-      <p class="mute" style="margin:8px 0 0">비고에 "미제출"이 있는 학생이 날짜별로 모입니다(미인정은 제외). 신고서를 받으면 [제출 완료]를 눌러 주세요. 남은 미제출이 있으면 수업이 있는 날 아침 08:00에 알림이 갑니다.</p>
-      <div id="docSum" style="margin-top:12px;font-weight:600"></div>
+      <p class="mute" style="margin:8px 0 0">비고에 "미제출"이 있고 신고서가 필요한 학생(질병, 출석인정 중 생리통·경조사·법정감염병)이 날짜별로 모입니다. 신고서를 받으면 [제출 완료]를 눌러 주세요. 남은 미제출이 있으면 수업이 있는 날 아침 08:00에 알림이 갑니다.</p>
+      <div class="row" style="margin-top:12px;justify-content:space-between;align-items:center"><div id="docSum" style="font-weight:600"></div><button class="btn" id="docMake">신고서 만들기</button></div>
     </div>
     <div class="tbox"><table id="docTable"></table></div>
     <p id="docMsg"></p>
@@ -463,7 +486,8 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
 
         <div class="card" id="h4"><h2>4. 출결신고서</h2>
           <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
-            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서] 메뉴에 월별로 모입니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 미인정은 신고서가 필요 없어 빠집니다.</li>
+            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서] 메뉴에 월별로 모입니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 신고서가 필요한 경우(질병, 출석인정 중 생리통·경조사·법정감염병)만 모이고, 미인정·기타·그 밖의 출석인정(대회 등)은 빠집니다.</li>
+            <li><b>신고서 출력:</b> [출결신고서] → [신고서 만들기]를 누르면 그 달 미제출 학생의 신고서를 한 파일(HWPX)로 만듭니다. 한 날짜만 필요하면 [오늘 출석부] → [신고서 출력]. 한글에서 열어 인쇄하세요. 사유 체크는 비고 괄호 안 내용으로 자동 체크되고, [고치기]로 바꿀 수 있습니다. 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</li>
             <li>신고서를 받으면 [제출 완료]를 누르세요. 목록에서 사라집니다(잘못 눌렀으면 [제출 완료 보기]에서 취소).</li>
             <li>남은 미제출이 있으면 수업이 있는 날 아침 08:00에 휴대폰으로 알림이 옵니다.</li>
           </ul>
@@ -1011,7 +1035,7 @@ function kdSync(){
   const t = (document.querySelector('input[name="kdT"]:checked') || {}).value;
   document.querySelectorAll('#kdCat label').forEach(l => { l.classList.toggle("off", !t); l.querySelector("input").disabled = !t; });
   const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
-  const noDoc = c === "미인정";
+  const noDoc = c === "미인정" || c === "기타";
   $("kdMiss").disabled = noDoc; if(noDoc) $("kdMiss").checked = false;
   $("kdMiss").closest("label").classList.toggle("off", noDoc);
   $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
@@ -1039,7 +1063,7 @@ $("kdApply").onclick = async () => {
   const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
   if(!t || !c){ alert("종류와 구분을 모두 선택하세요."); return; }
   const kind = c + t, reason = $("kdReason").value.trim();
-  const note = `${kind}(${reason})` + ($("kdMiss").checked && c !== "미인정" ? " 미제출" : "");
+  const note = `${kind}(${reason})` + ($("kdMiss").checked && c !== "미인정" && c !== "기타" ? " 미제출" : "");
   const no = KD.no, B = BOARD;
   try{
     must(await sb.from("day_manual").upsert({class_id:B.c, d:B.d, student_no:no, kind, note, by_email:ME_EMAIL, at:new Date().toISOString()}));
@@ -1221,6 +1245,7 @@ async function loadDoc(){
   $("docMonth").textContent = `${+ym.slice(0, 4)}년 ${+ym.slice(5)}월`;
   try{
     let rows = must(await sb.rpc("doc_list", {p_class: c, p_from: from, p_to: to}));
+    DOC_ROWS = rows.slice();
     if(c !== CUR || ym !== DOC_M) return;
     const left = rows.filter(r => !r.submitted).length;
     const done = rows.length - left;
@@ -1253,6 +1278,151 @@ $("docTable").onclick = async e => {
     say("docMsg", "", "mute");
   }catch(err){ say("docMsg", "저장 실패: " + err.message, "err"); }
   loadDoc();
+};
+
+/* ---------- 출결신고서 만들기 (HWPX) ---------- */
+let FORM_LIBS = null;
+function loadScript(src){ return new Promise((res, rej) => { const el = document.createElement("script"); el.src = src; el.onload = res; el.onerror = () => rej(new Error(src + " 를 불러오지 못했습니다")); document.head.appendChild(el); }); }
+function formLibs(){
+  if(!FORM_LIBS) FORM_LIBS = Promise.all([
+    window.JSZip ? 0 : loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"),
+    window.AttendForm ? 0 : loadScript("forms/attend-form.js?v=1"),
+    window.ATTEND_FORM_DEFAULTS ? 0 : loadScript("forms/templates.js?v=1")]).catch(e => { FORM_LIBS = null; throw e; });
+  return FORM_LIBS;
+}
+const FT = {KEYS: {report: "attend-form-template", parent: "attend-form-template-parent"}, LABEL: {report: "출결신고서", parent: "학부모확인서"}, tpl: {}, name: {}};
+const b64ToBuf = b => Uint8Array.from(atob(b), c => c.charCodeAt(0)).buffer;
+const bufToB64 = buf => { let x = ""; const u = new Uint8Array(buf); for(let i = 0; i < u.length; i += 0x8000) x += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(x); };
+function loadTpl(kind){
+  try{ const t = JSON.parse(localStorage.getItem(FT.KEYS[kind]) || "null"); if(t){ FT.tpl[kind] = b64ToBuf(t.b64); FT.name[kind] = t.name; return; } }catch(e){}
+  FT.tpl[kind] = b64ToBuf(ATTEND_FORM_DEFAULTS[kind]); FT.name[kind] = "";
+}
+function renderTplInfo(){
+  $("fmTpl").innerHTML = ["report", "parent"].map(k => `<div>${FT.LABEL[k]} 양식: ${esc(FT.name[k] || "기본")} · <button data-tpl="${k}">바꾸기</button>${FT.name[k] ? ` · <button data-tplreset="${k}">기본으로</button>` : ""}</div>`).join("");
+  $("fmTpl").querySelectorAll("[data-tpl]").forEach(b => b.onclick = () => $(b.dataset.tpl === "report" ? "fmTplFile" : "fmTplFile2").click());
+  $("fmTpl").querySelectorAll("[data-tplreset]").forEach(b => b.onclick = () => { try{ localStorage.removeItem(FT.KEYS[b.dataset.tplreset]); }catch(e){} loadTpl(b.dataset.tplreset); renderTplInfo(); });
+}
+async function setTpl(f, kind){
+  const buf = await f.arrayBuffer();
+  try{
+    const z = await JSZip.loadAsync(buf); const x = await z.file("Contents/section0.xml").async("string");
+    const n = (x.match(/<hp:ellipse/g) || []).length;
+    if(n !== 4){ say("fmMsg", `이 ${FT.LABEL[kind]} 양식에는 동그라미가 ${n}개 있습니다. 결석·지각·조퇴·결과 위에 하나씩, 4개가 필요합니다.`, "err"); return; }
+  }catch(e){ say("fmMsg", "HWPX 양식을 열지 못했습니다.", "err"); return; }
+  FT.tpl[kind] = buf; FT.name[kind] = f.name;
+  try{ localStorage.setItem(FT.KEYS[kind], JSON.stringify({name: f.name, b64: bufToB64(buf)})); }catch(e){}
+  renderTplInfo(); say("fmMsg", `${FT.LABEL[kind]} 양식을 ${f.name}(으)로 바꿨습니다.`, "ok");
+}
+$("fmTplFile").onchange = e => { const f = e.target.files[0]; if(f) setTpl(f, "report"); e.target.value = ""; };
+$("fmTplFile2").onchange = e => { const f = e.target.files[0]; if(f) setTpl(f, "parent"); e.target.value = ""; };
+$("fmX").onclick = () => $("formDlg").close();
+
+// 기간 내 교시별 "/" (교과선생님 > 담임 > 나이스)
+async function absentFn(c, from, to){
+  const q = t => sb.from(t).select("*").eq("class_id", c).gte("d", from).lte("d", to);
+  const [nm, tm, hm] = await Promise.all([q("neis_marks"), q("teacher_marks"), q("homeroom_marks")]);
+  const N = new Set(must(nm).map(x => `${x.d}:${x.student_no}:${x.slot}`));
+  const T = new Map(must(tm).map(x => [`${x.d}:${x.student_no}:${x.period}`, x.kind]));
+  const H = new Map((hm.error ? [] : hm.data).map(x => [`${x.d}:${x.student_no}:${x.slot}`, x.state]));
+  return (d, no, sl) => { const k = `${d}:${no}:${sl}`; const t = /^\d+$/.test(sl) ? T.get(k) : null; if(t) return t === "absent"; const h = H.get(k); if(h) return h === "absent"; return N.has(k); };
+}
+let FS = [];   // 신고서 후보
+const FORM_ED = {
+  "질병": [["복통"], ["두통"], ["감기"], ["외과 진료"], ["안과 진료"], ["이비인후 통증"], ["질병기타", "기타:", true]],
+  "출석인정": [["생리통"], ["경조사", "경조사:", true], ["법정감염병", "법정감염병 →"], ["코로나19", "코로나19"], ["인플루엔자", "인플루엔자(독감)"], ["감염기타", "기타:", true]]
+};
+// items: [{d, no, name, kind, note, absent(sl)=>bool, on}]
+async function openForms(items, title){
+  try{ await formLibs(); }catch(e){ alert(e.message); return; }
+  if(!FT.tpl.report){ loadTpl("report"); loadTpl("parent"); }
+  const [g, k] = (curClass().label.match(/(\d+)\D+(\d+)/) || [, "", ""]).slice(1);
+  FS = items.map(it => {
+    const r = AttendForm.classify({no: it.no, rawName: it.name, name: it.name, kind: it.kind || "", note: it.note || "", marks: AttendForm.PERIODS.map(sl => it.absent(sl))});
+    const [y, m, d] = it.d.split("-").map(Number);
+    return {...r, d: it.d, on: !!it.on && r.include, info: {grade: g, cls: k, date: {y, m, d}}};
+  });
+  $("fmSub").textContent = title;
+  say("fmMsg", "", "mute");
+  renderTplInfo(); renderForms();
+  $("formDlg").showModal();
+}
+function renderForms(){
+  const per = p => (p === "조회" || p === "종례" ? "" : "교시");
+  const rows = FS.map((r, i) => {
+    const flag = /확인/.test(r.note);
+    const period = !r.on ? "" : r.type === "결석" ? "조회 ~ 종례 · 1일간" : r.from ? `${r.from}${per(r.from)} ~ ${r.to}${per(r.to)}` : "";
+    const pill = r.include || r.on ? `<span class="pill" style="${r.cat === "출석인정" ? "" : "background:#e6edfd;color:#1d4ed8"}">${esc(r.kind)}</span>` : `<span class="mute">${esc(r.kind || "-")} · ${esc(r.skip || "제외")}</span>`;
+    let h = `<tr class="${r.on ? "" : "off"} ${flag && r.on ? "flag" : ""}"><td><input type="checkbox" data-fon="${i}" ${r.on ? "checked" : ""} ${r.type && (r.cat === "질병" || r.cat === "출석인정") ? "" : "disabled"} aria-label="${esc(r.name)} 신고서 넣기"></td>
+      <td>${fmtDate(r.d).slice(5)}</td><td>${r.no}</td><td>${esc(r.name)}</td>
+      <td>${pill}${r.on && AttendForm.needsParent(r) ? ' <span class="pill">+학부모확인서</span>' : ""}</td><td style="white-space:nowrap">${period}</td>
+      <td>${r.on ? `${esc(AttendForm.describe(r.cat, r.checks))}${r.edited ? ' <span class="pill">수정함</span>' : ""}<button class="lnk" data-fed="${i}">${r.editing ? "닫기" : "고치기"}</button>` : ""}</td>
+      <td class="mute" style="font-size:12px">${esc(r.note)}</td></tr>`;
+    if(r.on && r.editing){
+      const c = r.checks;
+      h += `<tr><td></td><td colspan="7"><div class="ed" data-edi="${i}">
+        <div class="ed-row"><span class="ed-h">구분</span>${["질병", "출석인정"].map(k => `<label class="opt"><input type="radio" name="fcat${i}" value="${k}" ${r.cat === k ? "checked" : ""}> ${k}</label>`).join("")}</div>
+        <div class="ed-row"><span class="ed-h">세부</span>${(FORM_ED[r.cat] || []).map(([k, label, t]) => `<label class="opt"><input type="checkbox" data-k="${k}" ${c.on[k] ? "checked" : ""}> ${esc(label || k)}${t ? ` <input type="text" class="ed-text" data-t="${k}" value="${esc(c.text[k] || "")}" placeholder="내용">` : ""}</label>`).join("")}</div>
+        <div class="ed-row"><button class="lnk" data-freset="${i}">비고대로 되돌리기</button></div></div></td></tr>`;
+    }
+    return h;
+  }).join("");
+  $("fmTable").innerHTML = FS.length ? `<thead><tr><th>넣기</th><th>날짜</th><th>번호</th><th>이름</th><th>구분</th><th>기간</th><th>사유 체크</th><th>비고</th></tr></thead><tbody>${rows}</tbody>`
+                                      : `<tbody><tr><td class="mute" style="padding:18px">신고서를 만들 학생이 없습니다.</td></tr></tbody>`;
+  $("fmTable").querySelectorAll("[data-fon]").forEach(cb => cb.onchange = () => { const r = FS[+cb.dataset.fon]; r.on = cb.checked; if(!r.on) r.editing = false; renderForms(); });
+  $("fmTable").querySelectorAll("[data-fed]").forEach(b => b.onclick = () => { const r = FS[+b.dataset.fed]; r.editing = !r.editing; renderForms(); });
+  $("fmTable").querySelectorAll("[data-freset]").forEach(b => b.onclick = () => { const r = FS[+b.dataset.freset]; const base = AttendForm.classify(r); r.cat = base.cat; r.checks = base.checks; r.edited = false; renderForms(); });
+  $("fmTable").querySelectorAll("[data-edi]").forEach(ed => {
+    const r = FS[+ed.dataset.edi];
+    ed.querySelectorAll('input[type=radio]').forEach(rb => rb.onchange = () => { r.cat = rb.value; r.checks = {on: {}, text: {}}; r.edited = true; renderForms(); });
+    ed.querySelectorAll("input[data-k]").forEach(x => x.onchange = () => {
+      const k = x.dataset.k; r.checks.on[k] = x.checked;
+      if(x.checked && ["코로나19", "인플루엔자", "감염기타"].includes(k)) r.checks.on["법정감염병"] = true;
+      if(!x.checked && k === "법정감염병") ["코로나19", "인플루엔자", "감염기타"].forEach(t => { r.checks.on[t] = false; });
+      r.edited = true; renderForms();
+    });
+    ed.querySelectorAll("input[data-t]").forEach(x => x.onchange = () => {
+      const k = x.dataset.t; r.checks.text[k] = x.value;
+      if(x.value.trim()){ r.checks.on[k] = true; if(k === "감염기타") r.checks.on["법정감염병"] = true; }
+      r.edited = true; renderForms();
+    });
+  });
+  const sel = FS.filter(r => r.on), m = sel.filter(AttendForm.needsParent).length;
+  $("fmGo").disabled = !sel.length;
+  $("fmGo").textContent = sel.length ? `신고서 ${sel.length}장${m ? ` + 학부모확인서 ${m}장` : ""} 만들기` : "신고서 만들기";
+}
+$("fmGo").onclick = async () => {
+  const recs = FS.filter(r => r.on).map(r => ({...r, include: true}));
+  if(!recs.length) return;
+  $("fmGo").disabled = true; say("fmMsg", "만드는 중…", "mute");
+  try{
+    const z = await AttendForm.buildHwpx(JSZip, FT.tpl.report, null, recs, {DOMParser, XMLSerializer}, FT.tpl.parent);
+    const blob = await z.generateAsync({type: "blob", compression: "DEFLATE", mimeType: "application/hwp+zip"});
+    const ds = [...new Set(recs.map(r => r.d))].sort();
+    const fname = `${ds.length > 1 ? `${ds[0]}~${ds[ds.length - 1].slice(5)}` : ds[0]}_${curClass().label}반_출결신고서.hwpx`;
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname;
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    const m = recs.filter(AttendForm.needsParent).length;
+    say("fmMsg", `${fname} 내려받기를 시작했습니다 (신고서 ${recs.length}장${m ? `, 학부모확인서 ${m}장` : ""}).`, "ok");
+  }catch(e){ say("fmMsg", "만들지 못했습니다: " + e.message, "err"); }
+  renderForms();
+};
+// [출결신고서] 메뉴: 이 달 목록 (미제출은 체크, 제출 완료는 해제 상태로)
+let DOC_ROWS = [];
+$("docMake").onclick = async () => {
+  if(!DOC_ROWS.length){ alert("이 달에는 신고서 대상 학생이 없습니다."); return; }
+  const [from, to] = monthRange(DOC_M);
+  let ab; try{ ab = await absentFn(CUR, from, to); }catch(e){ alert(e.message); return; }
+  openForms(DOC_ROWS.map(r => ({d: r.d, no: r.student_no, name: r.name || "", kind: r.kind, note: r.note, absent: sl => ab(r.d, r.student_no, sl), on: !r.submitted})),
+    `${+DOC_M.slice(0, 4)}년 ${+DOC_M.slice(5)}월 미제출 목록입니다. 아직 내지 않은 학생이 체크되어 있습니다.`);
+};
+// [오늘 출석부]: 이 날짜 신고서 대상
+$("bForm").onclick = () => {
+  const B = BOARD; if(!B || !B.students) return;
+  const items = B.students.filter(s => !s.excluded).map(s => {
+    const man = B.M.get(s.no), nd = B.D.get(s.no) || {};
+    return {d: B.d, no: s.no, name: s.name, kind: man ? man.kind : nd.kind, note: (man ? man.note : nd.note) || "", absent: sl => B.eff(s.no, sl).state === "absent", on: true};
+  }).filter(it => it.kind);
+  openForms(items, `${fmtDate(B.d)} 마감 입력이 있는 학생입니다. 신고서가 필요한 학생(질병, 출석인정 중 생리통·경조사·법정감염병)이 체크되어 있습니다.`);
 };
 
 /* ---------- 시간표·시정 ---------- */
