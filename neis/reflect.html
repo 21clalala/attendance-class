@@ -203,6 +203,10 @@ function compare(S, A){
     const slashNoKind = fields.some(f => SLOT_COLS.includes(f.col) && f.want === "/") && !wantKind;
     out.push({row: r.row, no: r.no, name: r.name, status, diff, choice: "neis", slashNoKind});
   }
+  const neisNos = new Set(S.rows.map(r => r.no));
+  for(const s of A.students){
+    if(!neisNos.has(s.no) && !s.excluded) warn.push(`${s.no}번 ${s.name}: 앱에만 있는 학생 (나이스에 없어 반영 안 됨)`);
+  }
   return {list: out, warn};
 }
 const TAG = {fill:["채움","c-fill"], change:["바꿈","c-change"], conflict:["충돌","c-conflict"], same:["같음","c-same"]};
