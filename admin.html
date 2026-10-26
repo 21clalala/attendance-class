@@ -147,6 +147,29 @@ td.chg{background:var(--accent-soft);font-weight:700}
 .log b.a{color:var(--red)} .log b.p{color:var(--ok)} .log b.c{color:var(--mute)}
 .log .tm{color:var(--mute);font-size:12px;margin-left:4px}
 
+/* 담임 직접 입력 */
+td.s{cursor:pointer}
+td.s:hover{outline:2px solid var(--accent-line);outline-offset:-2px}
+td.s.h{color:var(--ink);font-weight:800;background:#eef1ff}
+td.s.hp{color:var(--mute);font-size:11px;font-weight:600;background:var(--head)}
+td.kind{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
+td.kind:hover{background:var(--accent-soft)}
+td.kind .add{color:var(--mute);font-weight:400;font-size:12px}
+.mine{display:inline-block;margin-left:4px;padding:0 5px;border-radius:999px;background:#eef1ff;color:#3b4db8;font-size:10px;font-weight:700;vertical-align:1px}
+@media (prefers-color-scheme: dark){ td.s.h{background:#22284a} .mine{background:#22284a;color:#aab6ff} }
+dialog.kd{border:0;border-radius:16px;padding:0;width:min(440px,calc(100% - 32px));background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog.kd::backdrop{background:rgba(0,0,0,.4)}
+.kd .top{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700}
+.kd .top button{background:none;border:0;font-size:20px;cursor:pointer;color:var(--mute);line-height:1}
+.kd table{border-top:2px solid var(--ink);margin:16px 18px 0;width:calc(100% - 36px)}
+.kd th{position:static;width:84px;background:var(--head);color:var(--ink);font-size:13px;text-align:center}
+.kd td{text-align:left;padding:10px}
+.kd label{display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:14px;cursor:pointer}
+.kd label.off{color:var(--mute);opacity:.6;cursor:default}
+.kd input[type=text]{width:100%}
+.kd .who{padding:12px 18px 0;font-size:14px;font-weight:600}
+.kd .acts{display:flex;justify-content:center;gap:8px;padding:16px 18px 18px}
+
 /* 업로드 */
 .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--accent-line);border-radius:14px;background:var(--accent-soft);padding:36px 16px;text-align:center;cursor:pointer;color:var(--accent-ink)}
 .drop:hover,.drop.over{background:var(--accent-soft2);border-color:var(--accent)}
@@ -242,13 +265,30 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <div class="split">
       <div class="card tablecard">
         <div class="hd"><h2>학생별 출결</h2>
-          <div class="legend"><span><b>/</b> 나이스</span><span><b style="color:var(--red)">/</b> 교과선생님</span><span><b style="color:var(--ok);font-size:12px">출석</b> 나이스 / 해제</span><span>교과선생님 표시는 눌러서 삭제</span></div>
+          <div class="legend"><span><b>/</b> 나이스</span><span><b style="color:var(--ink);background:#eef1ff;padding:0 4px;border-radius:4px">/</b> 담임 입력</span><span><b style="color:var(--red)">/</b> 교과선생님</span><span><b style="color:var(--ok);font-size:12px">출석</b> "/" 해제</span><span>칸을 누르면 "/" 입력·해제, 마감 칸을 누르면 종류·사유 입력</span></div>
         </div>
         <div class="tscroll"><table id="bTable"></table></div>
       </div>
       <aside class="card rail" aria-label="최근 입력"><h2>최근 입력</h2><div class="log" id="bLog"></div></aside>
     </div>
   </section>
+
+  <dialog class="kd" id="kindDlg" aria-labelledby="kdTitle">
+    <div class="top"><span id="kdTitle">출결마감구분</span><button type="button" id="kdX" aria-label="닫기">×</button></div>
+    <div class="who" id="kdWho"></div>
+    <table>
+      <tr><th>종류</th><td id="kdType">
+        <label><input type="radio" name="kdT" value="결석"> 결석</label><label><input type="radio" name="kdT" value="지각"> 지각</label>
+        <label><input type="radio" name="kdT" value="조퇴"> 조퇴</label><label><input type="radio" name="kdT" value="결과"> 결과</label></td></tr>
+      <tr><th>구분</th><td id="kdCat">
+        <label><input type="radio" name="kdC" value="질병"> 질병</label><label><input type="radio" name="kdC" value="미인정"> 미인정</label>
+        <label><input type="radio" name="kdC" value="기타"> 기타</label><label><input type="radio" name="kdC" value="출석인정"> 출석인정</label></td></tr>
+      <tr><th>사유</th><td><input type="text" id="kdReason" maxlength="60" placeholder="예: 감기, 병원 진료"></td></tr>
+      <tr><th>신고서</th><td><label><input type="checkbox" id="kdMiss"> 출결신고서 미제출</label></td></tr>
+    </table>
+    <p class="mute" id="kdHint" style="margin:10px 18px 0"></p>
+    <div class="acts"><button class="btn" id="kdApply">적용</button><button class="btn danger" id="kdClear">마감 지우기</button><button class="btn ghost" id="kdClose">닫기</button></div>
+  </dialog>
 
   <!-- 업로드 -->
   <section data-p="upload" class="hidden">
@@ -467,11 +507,11 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
   </div>
 </div>
 
-<script src="config.js?v=16"></script>
+<script src="config.js?v=17"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="neis-parse.js?v=16"></script>
+<script src="neis-parse.js?v=17"></script>
 <script>
 const $ = id => document.getElementById(id);
 const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
@@ -486,7 +526,7 @@ function must(r){ if(r.error) throw r.error; return r.data; }
 function say(el, text, cls){ $(el).className = cls || ""; $(el).textContent = text; }
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} } };
 
-let SUPER = false, CLASSES = [], CUR = null;
+let SUPER = false, CLASSES = [], CUR = null, ME_EMAIL = "";
 const GLOBAL_TABS = ["adm", "comci", "help"];
 const curClass = () => CLASSES.find(c => c.id === CUR) || null;
 const tabNow = () => (document.querySelector("#tabs button.on") || {}).dataset?.t || "board";
@@ -539,6 +579,7 @@ async function boot(){
   }
   SUPER = !!s.data;
   $("loginBox").classList.add("hidden"); $("app").classList.remove("hidden");
+  ME_EMAIL = session.user.email;
   $("who").textContent = session.user.email + (SUPER ? " · 전체 관리자" : "");
   $("admTab").classList.toggle("hidden", !SUPER);
   $("comciTab").classList.toggle("hidden", !SUPER);
@@ -689,18 +730,32 @@ async function loadBoard(){
   if(!CUR) return;
   const d = $("bDate").value || kstToday(), c = CUR, today = kstToday();
   try{
-    const [st, nm, nd, tm, sch, lg] = await Promise.all([
+    const [st, nm, nd, tm, sch, lg, hm, dm] = await Promise.all([
       sb.from("students").select("*").eq("class_id", c).order("no"),
       sb.from("neis_marks").select("*").eq("class_id", c).eq("d", d),
       sb.from("neis_day").select("*").eq("class_id", c).eq("d", d),
       sb.from("teacher_marks").select("*").eq("class_id", c).eq("d", d),
       sb.rpc("admin_schedule", {p_class: c, p_d: d}),
-      sb.from("mark_log").select("*").eq("class_id", c).eq("d", d).order("at")]);
+      sb.from("mark_log").select("*").eq("class_id", c).eq("d", d).order("at"),
+      sb.from("homeroom_marks").select("*").eq("class_id", c).eq("d", d),
+      sb.from("day_manual").select("*").eq("class_id", c).eq("d", d)]);
     if(c !== CUR) return;
     const students = must(st), neis = must(nm), nday = must(nd), tmarks = must(tm), schedule = must(sch), logs = must(lg);
+    const hmarks = hm.error ? [] : (hm.data || []), dman = dm.error ? [] : (dm.data || []);
     const N = new Set(neis.map(x => x.student_no + ":" + x.slot));
     const T = new Map(tmarks.map(x => [x.student_no + ":" + x.period, x]));
+    const H = new Map(hmarks.map(x => [x.student_no + ":" + x.slot, x]));
     const D = new Map(nday.map(x => [x.student_no, x]));
+    const M = new Map(dman.map(x => [x.student_no, x]));
+    // 칸의 최종 상태: 교과선생님 > 담임 > 나이스
+    const eff = (no, sl) => {
+      const t = /^\d+$/.test(sl) ? T.get(no + ":" + sl) : null;
+      if(t) return {state: t.kind, src: "t", t};
+      const hh = H.get(no + ":" + sl);
+      if(hh) return {state: hh.state, src: "h", h: hh};
+      return N.has(no + ":" + sl) ? {state: "absent", src: "n"} : {state: null, src: null};
+    };
+    BOARD = {d, c, students, slots: null, N, T, H, D, M, eff};
     const slots = ["조회", ...schedule.map(x => String(x.period)), "종례"];
 
     // 지금 교시 (오늘만)
@@ -709,7 +764,7 @@ async function loadBoard(){
     const cur = isToday ? schedule.find(x => x.start <= nowHM && nowHM < x.end) : null;
     const lastStarted = isToday ? [...schedule].reverse().find(x => x.start <= nowHM) : null;
     const focus = cur || lastStarted || null;     // 재실 계산 기준 교시
-    const checked = new Set(logs.map(l => l.period));
+    const checked = new Set(logs.filter(l => !String(l.action).startsWith("hr_")).map(l => l.period));
 
     $("bTitle").textContent = isToday ? "오늘 출석부" : `${fmtDate(d)} 출석부`;
     $("bInfo").textContent = (isToday ? fmtDate(d) + " · " : "") +
@@ -733,10 +788,7 @@ async function loadBoard(){
     let absent = null;
     if(focus){
       const p = String(focus.period);
-      absent = students.filter(s => !s.excluded && !/자습/.test(s.tag || "")).filter(s => {
-        const t = T.get(s.no + ":" + p);
-        return (t && t.kind === "absent") || (N.has(s.no + ":" + p) && !(t && t.kind === "present"));
-      }).length;
+      absent = students.filter(s => !s.excluded && !/자습/.test(s.tag || "")).filter(s => eff(s.no, p).state === "absent").length;
     }
     $("bCount").innerHTML = enrolled ? (absent === null
         ? `<div class="big"><span class="mute">재적</span><b>${enrolled}</b><span class="mute">명</span></div>`
@@ -746,36 +798,145 @@ async function loadBoard(){
 
     if(!students.length){ $("bTable").innerHTML = `<tr><td class="mute" style="padding:24px;text-align:left">명단이 없습니다. [우리 반 설정]에서 명단을 입력하거나 나이스 파일을 올리세요.</td></tr>`; $("bLog").innerHTML = `<span class="mute">기록 없음</span>`; return; }
     const curP = cur ? String(cur.period) : "";
+    BOARD.slots = slots;
     let h = `<thead><tr><th>번호</th><th style="text-align:left">이름</th><th>마감</th>${slots.map(s => {
       const sc = schedule.find(x => String(x.period) === s);
       return `<th class="${s === curP ? "cur" : ""}">${/^\d+$/.test(s) ? s + "교시" : s}${sc && sc.teacher ? `<br><span style="font-weight:400">${esc(sc.teacher)}</span>` : ""}${sc && sc.changed ? ' <span class="pill">교체</span>' : ""}</th>`;
     }).join("")}<th style="text-align:left">비고</th></tr></thead><tbody>`;
     for(const s of students){
       const nd_ = D.get(s.no) || {};
-      h += `<tr class="${s.excluded ? "ex" : ""}"><td class="mute">${s.no}</td><td class="l" style="font-weight:600">${esc(s.name)}${s.tag ? ` <span class="pill">${esc(s.tag)}</span>` : ""}</td><td class="mute">${esc(nd_.kind)}</td>`;
+      const man = M.get(s.no);
+      const kind = man ? man.kind : nd_.kind, note = man ? man.note : nd_.note;
+      h += `<tr class="${s.excluded ? "ex" : ""}"><td class="mute">${s.no}</td><td class="l" style="font-weight:600">${esc(s.name)}${s.tag ? ` <span class="pill">${esc(s.tag)}</span>` : ""}</td>` +
+        `<td class="kind" data-kno="${s.no}" title="눌러서 마감 종류·사유 입력">${kind ? esc(kind) + (man ? '<span class="mine">담임</span>' : "") : '<span class="add">+ 입력</span>'}</td>`;
       for(const sl of slots){
-        const n = N.has(s.no + ":" + sl), t = /^\d+$/.test(sl) ? T.get(s.no + ":" + sl) : null;
+        const e = eff(s.no, sl);
         const cc = sl === curP ? " cur" : "";
-        const tip = t ? `${esc(t.teacher)} ${new Date(t.created_at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}` : "";
-        if(t && t.kind === "present") h += `<td class="s p${cc}" data-no="${s.no}" data-p="${sl}" data-k="present" title="나이스 / 해제 · ${tip}">출석</td>`;
-        else if(t) h += `<td class="s t${n ? " both" : ""}${cc}" data-no="${s.no}" data-p="${sl}" title="${tip}">/</td>`;
-        else h += `<td class="s${cc}">${n ? "/" : ""}</td>`;
+        const at = x => new Date(x).toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"});
+        let cls = "s", txt = "", tip = "";
+        if(e.src === "t"){ cls += e.state === "present" ? " p" : " t"; txt = e.state === "present" ? "출석" : "/"; tip = `${e.t.teacher} ${at(e.t.created_at)}`; }
+        else if(e.src === "h"){ cls += e.state === "present" ? " hp" : " h"; txt = e.state === "present" ? "해제" : "/"; tip = `담임 ${at(e.h.at)}`; }
+        else if(e.src === "n"){ txt = "/"; tip = "나이스"; }
+        h += `<td class="${cls}${cc}" data-no="${s.no}" data-slot="${sl}" title="${esc(tip)}">${txt}</td>`;
       }
-      h += `<td class="note">${esc(nd_.note)}</td></tr>`;
+      h += `<td class="note">${esc(note)}</td></tr>`;
     }
     $("bTable").innerHTML = h + "</tbody>";
-    $("bTable").querySelectorAll("td.t, td.p").forEach(td => td.onclick = () => removeMark(d, +td.dataset.p, +td.dataset.no, td.dataset.k));
+    $("bTable").querySelectorAll("td.s[data-slot]").forEach(td => td.onclick = () => editCell(+td.dataset.no, td.dataset.slot));
+    $("bTable").querySelectorAll("td.kind").forEach(td => td.onclick = () => openKind(+td.dataset.kno));
 
     // 최근 입력 (새 것부터)
     const name = no => (students.find(s => s.no === no) || {}).name || "";
     const act = {add:["없음", "a"], unpresent:["다시 없음", "a"], remove:["출석 정정", "p"], present:["출석 확인", "p"], admin_remove:["담임 삭제", "c"], check:["확인", "c"]};
+    const stTxt = v => v === "absent" ? "/" : v === "present" ? "해제" : "빈칸";
     $("bLog").innerHTML = logs.length ? [...logs].reverse().map(l => {
-      const [label, cls] = act[l.action] || [l.action, "c"];
       const tm = new Date(l.at).toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"});
-      return `<div><b class="${cls}">${esc(label)}</b> ${l.period}교시${l.action === "check" ? "" : ` ${esc(name(l.student_no))}`} · ${esc(l.teacher || "")}<span class="tm">${tm}</span></div>`;
+      const where = l.slot ? (/^\d+$/.test(l.slot) ? l.slot + "교시" : l.slot) : (l.period ? l.period + "교시" : "");
+      const memo = l.memo ? `<br><span class="mute">메모: ${esc(l.memo)}</span>` : "";
+      if(l.action === "hr_set") return `<div><b class="c">담임</b> ${where} ${esc(name(l.student_no))} ${stTxt(l.before)} → ${stTxt(l.after)}<span class="tm">${tm}</span>${memo}</div>`;
+      if(l.action === "hr_override") return `<div><b class="c">담임 수정</b> ${where} ${esc(name(l.student_no))} · 교과(${esc(l.teacher || "")}) ${stTxt(l.before)} → ${stTxt(l.after)}<span class="tm">${tm}</span>${memo}</div>`;
+      if(l.action === "hr_kind") return `<div><b class="c">마감</b> ${esc(name(l.student_no))} ${esc(l.before || "없음")} → ${esc(l.after || "없음")}<span class="tm">${tm}</span>${memo}</div>`;
+      const [label, cls] = act[l.action] || [l.action, "c"];
+      return `<div><b class="${cls}">${esc(label)}</b> ${where}${l.action === "check" ? "" : ` ${esc(name(l.student_no))}`} · ${esc(l.teacher || "")}<span class="tm">${tm}</span></div>`;
     }).join("") : `<span class="mute">기록 없음</span>`;
   }catch(e){ $("bTable").innerHTML = `<tr><td class="err">불러오기 실패: ${esc(e.message)}</td></tr>`; }
 }
+/* ---------- 담임 직접 입력 ---------- */
+let BOARD = null;
+const logRow = (r) => ({class_id: BOARD.c, d: BOARD.d, student_no: r.no, period: /^\d+$/.test(r.slot || "") ? +r.slot : null, slot: r.slot || null,
+  action: r.action, teacher: r.teacher || "담임", before: r.before ?? null, after: r.after ?? null, by_email: ME_EMAIL, memo: r.memo || null});
+
+// 칸 하나를 원하는 상태로 (target: "absent" | "present")
+async function setCell(no, slot, target){
+  const B = BOARD, e = B.eff(no, slot), base = B.N.has(no + ":" + slot) ? "absent" : "present";
+  const logs = [];
+  if(e.src === "t"){
+    must(await sb.from("teacher_marks").delete().match({class_id:B.c, d:B.d, period:+slot, student_no:no}));
+    logs.push(logRow({no, slot, action:"hr_override", teacher:e.t.teacher, before:e.t.kind, after:target}));
+  }
+  if(target === base) must(await sb.from("homeroom_marks").delete().match({class_id:B.c, d:B.d, student_no:no, slot}));
+  else must(await sb.from("homeroom_marks").upsert({class_id:B.c, d:B.d, student_no:no, slot, state:target, by_email:ME_EMAIL, at:new Date().toISOString()}));
+  if(e.src !== "t") logs.push(logRow({no, slot, action:"hr_set", before:e.state || "none", after:target}));
+  return logs;
+}
+async function editCell(no, slot){
+  const e = BOARD.eff(no, slot);
+  const target = e.state === "absent" ? "present" : "absent";
+  if(e.src === "t"){
+    const nm = (BOARD.students.find(s => s.no === no) || {}).name || "";
+    if(!confirm(`${e.t.teacher} 선생님이 입력한 ${nm} ${/^\d+$/.test(slot) ? slot + "교시" : slot} 값을 ${target === "absent" ? '"/"' : "해제"}(으)로 바꿀까요?\n원래 입력은 기록에 남습니다.`)) return;
+  }
+  try{
+    const logs = await setCell(no, slot, target);
+    if(logs.length) must(await sb.from("mark_log").insert(logs));
+  }catch(err){ alert("저장 실패: " + err.message); }
+  loadBoard();
+}
+
+// 마감 종류·사유
+const KIND_T = ["결석", "지각", "조퇴", "결과"], KIND_C = ["질병", "미인정", "기타", "출석인정"];
+let KD = null;
+function parseKind(k){
+  k = (k || "").trim();
+  const c = KIND_C.find(x => k.startsWith(x)), t = KIND_T.find(x => k.endsWith(x));
+  return {c: c || "", t: t || ""};
+}
+function kdSync(){
+  const t = (document.querySelector('input[name="kdT"]:checked') || {}).value;
+  document.querySelectorAll('#kdCat label').forEach(l => { l.classList.toggle("off", !t); l.querySelector("input").disabled = !t; });
+  $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
+}
+document.querySelectorAll('input[name="kdT"]').forEach(r => r.onchange = kdSync);
+function openKind(no){
+  const s = BOARD.students.find(x => x.no === no); if(!s) return;
+  const man = BOARD.M.get(no), nd = BOARD.D.get(no) || {};
+  const kind = man ? man.kind : nd.kind, note = (man ? man.note : nd.note) || "";
+  const {c, t} = parseKind(kind);
+  KD = {no, prevKind: kind || ""};
+  $("kdWho").textContent = `${s.no}번 ${s.name} · ${fmtDate(BOARD.d)}`;
+  document.querySelectorAll('input[name="kdT"]').forEach(r => r.checked = r.value === t);
+  document.querySelectorAll('input[name="kdC"]').forEach(r => r.checked = r.value === c);
+  const m = note.match(/\(([^()]*)\)/);
+  $("kdReason").value = m ? m[1] : "";
+  $("kdMiss").checked = /미제출/.test(note);
+  $("kdClear").classList.toggle("hidden", !man);
+  kdSync();
+  $("kindDlg").showModal();
+}
+$("kdX").onclick = $("kdClose").onclick = () => $("kindDlg").close();
+$("kdApply").onclick = async () => {
+  const t = (document.querySelector('input[name="kdT"]:checked') || {}).value;
+  const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
+  if(!t || !c){ alert("종류와 구분을 모두 선택하세요."); return; }
+  const kind = c + t, reason = $("kdReason").value.trim();
+  const note = `${kind}(${reason})` + ($("kdMiss").checked ? " 미제출" : "");
+  const no = KD.no, B = BOARD;
+  try{
+    must(await sb.from("day_manual").upsert({class_id:B.c, d:B.d, student_no:no, kind, note, by_email:ME_EMAIL, at:new Date().toISOString()}));
+    const logs = [logRow({no, action:"hr_kind", before:KD.prevKind, after:kind, memo:note})];
+    if(t === "결석"){
+      for(const sl of B.slots){
+        const e = B.eff(no, sl);
+        if(e.state === "absent" || e.src === "t") continue;   // 이미 "/"거나 교과선생님 입력은 그대로
+        logs.push(...await setCell(no, sl, "absent"));
+      }
+    }
+    must(await sb.from("mark_log").insert(logs));
+    $("kindDlg").close();
+  }catch(err){ alert("저장 실패: " + err.message); }
+  loadBoard();
+};
+$("kdClear").onclick = async () => {
+  if(!confirm("담임이 입력한 마감 종류·사유를 지울까요? (나이스 업로드 값이 있으면 그 값으로 돌아갑니다. 교시 \"/\"는 그대로입니다.)")) return;
+  const no = KD.no, B = BOARD;
+  try{
+    must(await sb.from("day_manual").delete().match({class_id:B.c, d:B.d, student_no:no}));
+    must(await sb.from("mark_log").insert([logRow({no, action:"hr_kind", before:KD.prevKind, after:""})]));
+    $("kindDlg").close();
+  }catch(err){ alert("삭제 실패: " + err.message); }
+  loadBoard();
+};
+
 async function removeMark(d, p, no, kind){
   const what = kind === "present" ? "출석 확인(나이스 / 해제)" : '"/"';
   if(!confirm(`${p}교시 ${no}번 교과선생님 입력 ${what}을(를) 삭제할까요? (알림은 보내지 않습니다)`)) return;
@@ -790,7 +951,8 @@ $("bToday").onclick = () => { $("bDate").value = kstToday(); loadBoard(); };
 function subscribe(){
   const refresh = () => { clearTimeout(boardTimer); boardTimer = setTimeout(() => { if(tabNow() === "board") loadBoard(); }, 400); };
   sb.channel("attend").on("postgres_changes", {event:"*", schema:"public", table:"teacher_marks"}, refresh)
-                      .on("postgres_changes", {event:"*", schema:"public", table:"neis_marks"}, refresh).subscribe();
+                      .on("postgres_changes", {event:"*", schema:"public", table:"neis_marks"}, refresh)
+                      .on("postgres_changes", {event:"*", schema:"public", table:"homeroom_marks"}, refresh).subscribe();
   setInterval(refresh, 60000);   // 실시간 연결이 끊겨도 1분마다 갱신
 }
 
