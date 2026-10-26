@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>나이스 반영 도구</title>
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#1f2427;--mute:#5b6168;--line:#e3e6e1;--ok:#0f766e}
+@media (prefers-color-scheme: dark){:root{--bg:#111413;--card:#1a1e1d;--ink:#e7ebe9;--mute:#9aa3a0;--line:#2c3330;--ok:#3cc4b4}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:24px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:16px}
+h1{font-size:22px;margin:0}
+ol{padding-left:20px}
+a.bm{display:inline-block;padding:10px 18px;border-radius:999px;background:var(--ok);color:#fff;font-weight:700;text-decoration:none;cursor:grab}
+.mute{color:var(--mute);font-size:13px}
+</style></head>
+<body><main>
+<h1>나이스 반영 도구</h1>
+<div class="card">
+  <h2 style="font-size:17px;margin:0 0 8px">1단계 · 나이스 화면 조사 (읽기 전용)</h2>
+  <p style="margin:0 0 12px">아래 버튼을 <b>즐겨찾기 막대로 끌어다 놓으세요.</b> (막대가 안 보이면 Ctrl+Shift+B)</p>
+  <p><a class="bm" id="probe" href="#">출결 조사</a> <span class="mute" id="st">불러오는 중…</span></p>
+  <ol>
+    <li>나이스 → 학급담임 → 출결관리 → <b>일일출결관리(담임용)</b>에서 날짜를 고르고 [조회]</li>
+    <li>즐겨찾기 막대의 <b>[출결 조사]</b> 클릭</li>
+    <li>작은 창이 뜨면 팝업 허용 안내가 나올 수 있습니다. 허용 후 한 번 더 누르세요.</li>
+    <li>[결과 복사]를 눌러 Claude에게 붙여 주세요.</li>
+  </ol>
+  <p class="mute">아무것도 클릭·입력·저장하지 않습니다. 학생 이름·사유는 〔글자n〕으로 가려서 뽑습니다.<br>가능하면 학생 중 한 명의 <b>마감 칸을 눌러 출결마감구분 창을 열어 둔 상태</b>에서도 한 번 더 눌러 주세요(창의 구조도 확인합니다). [적용]은 누르지 마세요.</p>
+</div>
+</main>
+<script>
+fetch("probe.js?v=" + Date.now()).then(r => r.text()).then(code => {
+  document.getElementById("probe").href = "javascript:" + encodeURIComponent(code);
+  document.getElementById("st").textContent = "준비됨";
+}).catch(e => { document.getElementById("st").textContent = "불러오기 실패: " + e.message; });
+document.getElementById("probe").onclick = e => { e.preventDefault(); alert("이 버튼은 누르는 게 아니라 즐겨찾기 막대로 끌어다 놓는 버튼입니다."); };
+</script>
+</body></html>

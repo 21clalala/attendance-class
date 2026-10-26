@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>연결 시험</title>
+<style>body{font:14px sans-serif;margin:24px;color:#1f2427;background:#f6f7f5}</style></head>
+<body><b>출결 앱 · 연결 시험 창</b><p id="m">나이스 창과 연결하는 중…</p>
+<script>
+const ok = !!window.opener;
+if(ok){ try{ window.opener.postMessage({type: "attend-pong", opener: true}, "*"); document.getElementById("m").textContent = "연결 성공. 이 창은 곧 닫힙니다."; }catch(e){ document.getElementById("m").textContent = "연결 실패: " + e.message; } }
+else document.getElementById("m").textContent = "나이스 창과 연결이 끊겨 있습니다 (opener 없음). 이 창은 닫아도 됩니다.";
+</script></body></html>
