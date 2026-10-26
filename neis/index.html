@@ -4,34 +4,51 @@
 <style>
 :root{--bg:#f6f7f5;--card:#fff;--ink:#1f2427;--mute:#5b6168;--line:#e3e6e1;--ok:#0f766e}
 @media (prefers-color-scheme: dark){:root{--bg:#111413;--card:#1a1e1d;--ink:#e7ebe9;--mute:#9aa3a0;--line:#2c3330;--ok:#3cc4b4}}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 system-ui,sans-serif}
 main{max-width:720px;margin:0 auto;padding:24px 16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:16px}
-h1{font-size:22px;margin:0}
-ol{padding-left:20px}
+h1{font-size:22px;margin:0} h2{font-size:17px;margin:0 0 8px}
+ol{padding-left:20px;margin:8px 0}
 a.bm{display:inline-block;padding:10px 18px;border-radius:999px;background:var(--ok);color:#fff;font-weight:700;text-decoration:none;cursor:grab}
+a.bm.sub{background:transparent;color:var(--ok);border:1px solid var(--line)}
 .mute{color:var(--mute);font-size:13px}
 </style></head>
 <body><main>
 <h1>나이스 반영 도구</h1>
 <div class="card">
-  <h2 style="font-size:17px;margin:0 0 8px">나이스 화면 조사 2차 (읽기 전용)</h2>
-  <p style="margin:0 0 12px">아래 버튼을 <b>즐겨찾기 막대로 끌어다 놓으세요.</b> (막대가 안 보이면 Ctrl+Shift+B)</p>
-  <p><a class="bm" id="probe" href="#">출결 조사</a> <span class="mute" id="st">불러오는 중…</span></p>
+  <h2>설치 (한 번만)</h2>
+  <ol>
+    <li>나이스를 여는 브라우저(크롬 또는 엣지)에서 이 페이지를 엽니다.</li>
+    <li>즐겨찾기 막대를 켭니다: <b>Ctrl+Shift+B</b></li>
+    <li>아래 초록 버튼을 <b>즐겨찾기 막대로 끌어다 놓습니다.</b> (누르지 말고 끌기)</li>
+    <li>같은 브라우저에서 <a href="../admin.html" target="_blank">출결 앱 관리자 페이지</a>에 로그인해 둡니다.</li>
+  </ol>
+  <p style="margin:14px 0 4px"><a class="bm" id="bm" href="#">출결 반영</a></p>
+  <p class="mute">이 버튼은 앞으로 기능이 바뀌어도 다시 설치할 필요가 없습니다.</p>
+</div>
+<div class="card">
+  <h2>매일 반영하기</h2>
   <ol>
     <li>나이스 → 학급담임 → 출결관리 → <b>일일출결관리(담임용)</b>에서 날짜를 고르고 [조회]</li>
-    <li>즐겨찾기 막대의 <b>[출결 조사]</b> 클릭</li>
-    <li>작은 창이 뜨면 팝업 허용 안내가 나올 수 있습니다. 허용 후 한 번 더 누르세요.</li>
-    <li>[결과 복사]를 눌러 Claude에게 붙여 주세요.</li>
+    <li>즐겨찾기의 <b>[출결 반영]</b> 클릭 → 옆에 반영 창이 뜹니다 (팝업 차단 안내가 나오면 허용)</li>
+    <li>비교표를 보고, 충돌 학생은 "나이스 그대로 / 앱 내용으로" 선택</li>
+    <li>[나이스에 채우기] → "이대로 반영할까요?" 확인 → [반영]</li>
+    <li>나이스 화면을 확인하고 <b>[저장]은 직접</b> 누르기</li>
+    <li>나이스 [조회]를 한 번 더 누르고 반영 창의 [다시 확인] → [반영 완료]</li>
   </ol>
-  <p class="mute">아무것도 클릭·입력·저장하지 않습니다. 학생 이름·사유는 〔글자n〕으로 가려서 뽑습니다.<br>가능하면 학생 중 한 명의 <b>마감 칸을 눌러 출결마감구분 창을 열어 둔 상태</b>에서도 한 번 더 눌러 주세요(창의 구조도 확인합니다). [적용]은 누르지 마세요.</p>
+  <p class="mute">반영 창은 나이스의 [저장]·[출결마감]을 절대 누르지 않습니다. 저장하기 전에 나이스에서 [조회]를 다시 누르면 채운 내용은 사라집니다.</p>
+</div>
+<div class="card">
+  <h2 style="font-size:15px">문제가 생겼을 때</h2>
+  <p class="mute" style="margin:0 0 10px">아래 버튼도 즐겨찾기에 끌어다 놓고, 나이스 화면에서 눌러 나온 결과를 보내 주세요. 읽기만 하고, 이름·주민번호 등은 가려집니다.</p>
+  <a class="bm sub" id="probe" href="#">출결 조사</a>
 </div>
 </main>
 <script>
-fetch("probe.js?v=" + Date.now()).then(r => r.text()).then(code => {
-  document.getElementById("probe").href = "javascript:" + encodeURIComponent(code);
-  document.getElementById("st").textContent = "준비됨";
-}).catch(e => { document.getElementById("st").textContent = "불러오기 실패: " + e.message; });
-document.getElementById("probe").onclick = e => { e.preventDefault(); alert("이 버튼은 누르는 게 아니라 즐겨찾기 막대로 끌어다 놓는 버튼입니다."); };
+const BASE = "https://21clalala.github.io/attendance-class/neis/";
+const loader = f => "javascript:(function(){var s=document.createElement('script');s.src='" + BASE + f + "?v='+Date.now();s.onerror=function(){alert('출결 앱 스크립트를 불러오지 못했습니다.')};document.head.appendChild(s);})()";
+document.getElementById("bm").href = loader("agent.js");
+document.getElementById("probe").href = loader("probe.js");
+document.querySelectorAll("a.bm").forEach(a => a.addEventListener("click", e => { e.preventDefault(); alert("이 버튼은 누르는 게 아니라 즐겨찾기 막대로 끌어다 놓는 버튼입니다."); }));
 </script>
 </body></html>

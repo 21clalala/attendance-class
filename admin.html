@@ -437,7 +437,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li>담임 시간(기본: 금요일 5·6교시)에는 담임선생님 휴대폰에서 체크합니다.</li>
             <li>조회 시간(08:00~08:50)에는 담임선생님이 교실 QR을 찍어 조회 출결을 입력할 수 있습니다. 담임 직접 입력으로 기록되고 알림은 가지 않습니다. (반·관리자에 담임 이름이 있어야 열립니다)</li>
             <li>출결신고서: 비고에 "미제출"이 있으면 [출결신고서] 메뉴에 월별로 모입니다(미인정 제외). 받으면 [제출 완료]를 누르세요. 남은 건이 있으면 수업일 아침 08:00에 알림이 갑니다.</li>
-            <li>나이스 반영 도구(준비 중): <a href="neis/" target="_blank">나이스 반영 도구 페이지</a>에서 즐겨찾기 버튼을 설치합니다.</li>
+            <li>나이스 반영: <a href="neis/" target="_blank">나이스 반영 도구 페이지</a>에서 [출결 반영] 버튼을 즐겨찾기에 설치하고, 나이스 일일출결관리 화면에서 누릅니다. 채우기만 하고 저장은 직접 누릅니다.</li>
           </ul>
         </div>
         <div class="card" id="h4"><h2>4. 교과선생님 사용법 (전달용)</h2>
@@ -759,7 +759,7 @@ async function loadBoard(){
   if(!CUR) return;
   const d = $("bDate").value || kstToday(), c = CUR, today = kstToday();
   try{
-    const [st, nm, nd, tm, sch, lg, hm, dm] = await Promise.all([
+    const [st, nm, nd, tm, sch, lg, hm, dm, rf] = await Promise.all([
       sb.from("students").select("*").eq("class_id", c).order("no"),
       sb.from("neis_marks").select("*").eq("class_id", c).eq("d", d),
       sb.from("neis_day").select("*").eq("class_id", c).eq("d", d),
@@ -767,7 +767,8 @@ async function loadBoard(){
       sb.rpc("admin_schedule", {p_class: c, p_d: d}),
       sb.from("mark_log").select("*").eq("class_id", c).eq("d", d).order("at"),
       sb.from("homeroom_marks").select("*").eq("class_id", c).eq("d", d),
-      sb.from("day_manual").select("*").eq("class_id", c).eq("d", d)]);
+      sb.from("day_manual").select("*").eq("class_id", c).eq("d", d),
+      sb.from("neis_reflect").select("*").eq("class_id", c).eq("d", d)]);
     if(c !== CUR) return;
     const students = must(st), neis = must(nm), nday = must(nd), tmarks = must(tm), schedule = must(sch), logs = must(lg);
     const hmarks = hm.error ? [] : (hm.data || []), dman = dm.error ? [] : (dm.data || []);
@@ -803,7 +804,7 @@ async function loadBoard(){
     $("bTitle").textContent = isToday ? "오늘 출석부" : `${fmtDate(d)} 출석부`;
     $("bInfo").textContent = (isToday ? fmtDate(d) + " · " : "") +
       (!schedule.length ? "수업 없는 날" : cur ? (cur.period === 0 ? `지금 조회 · ${cur.teacher}` : `지금 ${cur.period}교시 · ${cur.teacher || "선생님 미정"} 수업`) : isToday && nowHM < tl[0].start ? "수업 전" : isToday ? "수업 시간 아님" : `${schedule.length}교시`) +
-      "";
+      ((!rf.error && rf.data && rf.data[0]) ? ` · 나이스 반영 ✓ ${new Date(rf.data[0].at).toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"})}` : "");
 
     // 교시별 체크 현황
     $("bTimeline").innerHTML = tl.map(x => {

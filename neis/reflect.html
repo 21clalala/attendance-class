@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>나이스 반영</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#1f2427;--mute:#5b6168;--line:#e3e6e1;--line2:#eceeea;--ok:#0f766e;--ok2:#0b5c56;--oks:#e6f7f4;--okl:#b7e2db;
+  --red:#8f1d1d;--reds:#fff0f0;--redl:#f3c4c4;--blue:#2f3e9e;--blues:#eef1ff;--warn:#6b4500;--warns:#fff8e6;--warnl:#f0d9a8}
+@media (prefers-color-scheme: dark){:root{--bg:#111413;--card:#1a1e1d;--ink:#e7ebe9;--mute:#9aa3a0;--line:#2c3330;--line2:#252b29;--ok:#3cc4b4;--ok2:#7fe0d4;--oks:#173330;--okl:#23524c;
+  --red:#ff9b9b;--reds:#3a1f22;--redl:#6b3236;--blue:#aab6ff;--blues:#22264a;--warn:#f0c674;--warns:#352a14;--warnl:#5a4720}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 'IBM Plex Sans KR',system-ui,sans-serif;display:flex;flex-direction:column}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;flex-direction:column;gap:4px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.top b{font-size:17px}
+.conn{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--mute)}
+.conn i{width:8px;height:8px;border-radius:50%;background:var(--mute)}
+.conn.on{color:var(--ok)}.conn.on i{background:var(--ok)}
+#who{font-size:15px;font-weight:700}
+#sub{font-size:12px;color:var(--mute)}
+main{flex:1 1 auto;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+footer{background:var(--card);border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:8px}
+button{font:inherit;cursor:pointer}
+.btn{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-weight:600;padding:0 16px}
+.btn.pri{border:0;background:var(--ok);color:#fff;font-weight:700;flex:1 1 auto;font-size:15px}
+.btn.pri:disabled{opacity:.45;cursor:default}
+.note{font-size:12px;color:var(--mute);text-align:center}
+.alert{border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;line-height:1.5}
+.alert.red{background:var(--reds);border:1px solid var(--redl);color:var(--red)}
+.alert.warn{background:var(--warns);border:1px solid var(--warnl);color:var(--warn);font-weight:500}
+.alert.ok{background:var(--oks);border:1px solid var(--okl);color:var(--ok2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;font-size:12px;font-weight:600}
+.chip{padding:5px 10px;border-radius:999px}
+.c-fill{background:var(--oks);color:var(--ok2)}.c-change{background:var(--blues);color:var(--blue)}.c-conflict{background:var(--reds);color:var(--red)}.c-same{background:var(--card);border:1px solid var(--line);color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.card.conflict{border:2px solid var(--redl)}
+.card .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .h b{font-size:14px}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.card table{border-collapse:collapse;width:100%;font-size:12px}
+.card th{text-align:left;color:var(--mute);font-weight:600;padding:3px 6px 3px 0}
+.card td{padding:3px 6px 3px 0;vertical-align:top}
+.card td.k{color:var(--mute);width:44px}
+.card td.n.diff{color:var(--red);font-weight:700}
+.card td.a{font-weight:600}
+.arrow{color:var(--mute)}
+fieldset{border:0;margin:0;padding:8px 0 0;border-top:1px solid var(--line2);display:flex;flex-direction:column;gap:4px;font-size:13px}
+fieldset label{display:flex;gap:8px;align-items:center;min-height:30px}
+.mute{color:var(--mute)}
+dialog{border:0;border-radius:16px;padding:0;width:min(520px,94vw);background:var(--card);color:var(--ink);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg{padding:20px;display:flex;flex-direction:column;gap:12px}
+.dlg h2{margin:2px 0 0;font-size:20px}
+.dlg ol{margin:0;padding:0;list-style:none;border:1px solid var(--line);border-radius:12px;font-size:13px;max-height:46vh;overflow:auto}
+.dlg li{padding:9px 12px;border-bottom:1px solid var(--line2)}
+.dlg li:last-child{border-bottom:0}
+.hidden{display:none!important}
+a{color:var(--ok)}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><b>나이스 반영</b><span class="conn" id="conn"><i></i><span id="connT">나이스 화면 연결 중…</span></span></div>
+  <div id="who"></div>
+  <div id="sub"></div>
+</header>
+<main id="main"><p class="mute">불러오는 중…</p></main>
+<footer id="foot" class="hidden"></footer>
+
+<dialog id="cfm"><div class="dlg">
+  <div><div class="mute" id="cfWho" style="font-size:13px;font-weight:600"></div><h2>이대로 반영할까요?</h2></div>
+  <div class="chips" id="cfChips"></div>
+  <ol id="cfList"></ol>
+  <div class="alert warn">채우기만 합니다. 다 채운 뒤 <b>나이스 화면에서 확인하고 [저장]을 직접</b> 눌러야 저장됩니다.</div>
+  <div class="row"><button class="btn" id="cfNo" style="flex:1 1 0">취소</button><button class="btn pri" id="cfYes" style="flex:2 1 0">반영</button></div>
+</div></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js?v=17"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const DOW = ["일","월","화","수","목","금","토"];
+const fmtDate = d => `${d.replaceAll("-",".")}.(${DOW[new Date(d+"T00:00:00").getDay()]})`;
+const must = r => { if(r.error) throw r.error; return r.data; };
+const sb = supabase.createClient(ATTEND_CONFIG.SUPABASE_URL, ATTEND_CONFIG.SUPABASE_KEY);
+const NEIS_RE = /^https:\/\/[a-z0-9-]+\.neis\.go\.kr$/;
+const SLOT_COLS = ["jo", ...Array.from({length:12}, (_, i) => "gyo" + (i + 1)), "jong"];
+const colKey = c => c === "jo" ? "조회" : c === "jong" ? "종례" : c.slice(3);          // 앱 칸 이름
+const colName = c => c === "jo" ? "조회" : c === "jong" ? "종례" : c === "chulgyulGb" ? "마감" : c === "atteRmkCn" ? "사유" : c.slice(3) + "교시";
+const norm = s => String(s ?? "").replace(/\s+/g, " ").trim();
+
+let NEIS_ORIGIN = null, ME = "", S = null, A = null, CMP = null, PLAN = null, LAST_FILL = null;
+
+/* ---------- 나이스 창과 메시지 ---------- */
+let seq = 0; const waits = new Map();
+window.addEventListener("message", e => {
+  if(!NEIS_RE.test(e.origin) || !e.data || e.data.app !== "attend") return;
+  if(e.source !== window.opener) return;
+  NEIS_ORIGIN = e.origin;
+  const w = waits.get(e.data.id); if(w){ waits.delete(e.data.id); w(e.data); }
+});
+function ask(type, extra, timeout){
+  return new Promise((res, rej) => {
+    if(!window.opener || window.opener.closed) return rej(new Error("나이스 창이 닫혀 있습니다. 나이스에서 [출결 반영]을 다시 눌러 주세요."));
+    const id = ++seq; waits.set(id, res);
+    // 첫 요청(읽기)은 내용이 없으므로 어느 주소로든 보내고, 학생 정보가 담긴 요청은 나이스 주소로만 보냄
+    const target = type === "read" && !NEIS_ORIGIN ? "*" : NEIS_ORIGIN;
+    if(!target) return rej(new Error("나이스 창 주소를 확인하지 못했습니다."));
+    window.opener.postMessage({app:"attend", id, type, ...extra}, target);
+    setTimeout(() => { if(waits.has(id)){ waits.delete(id); rej(new Error("나이스 창이 응답하지 않습니다. 나이스에서 [출결 반영]을 다시 눌러 주세요.")); } }, timeout || 8000);
+  });
+}
+function setConn(on, t){ $("conn").classList.toggle("on", on); $("connT").textContent = t; }
+
+/* ---------- 화면 ---------- */
+function showError(html){ $("main").innerHTML = `<div class="alert red">${html}</div>`; $("foot").classList.add("hidden"); }
+function foot(html){ $("foot").innerHTML = html; $("foot").classList.remove("hidden"); }
+
+async function start(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ setConn(false, "로그인 필요"); showError(`출결 앱에 로그인되어 있지 않습니다.<br><a href="../admin.html" target="_blank">출결 앱 관리자 페이지</a>에서 로그인한 뒤, 이 창을 닫고 나이스에서 [출결 반영]을 다시 눌러 주세요.`); return; }
+  ME = session.user.email || "";
+  await reread();
+}
+
+async function reread(){
+  $("main").innerHTML = `<p class="mute">나이스 화면을 읽는 중…</p>`; $("foot").classList.add("hidden");
+  let st;
+  try{ st = (await ask("read")).state; }catch(e){ setConn(false, "연결 안 됨"); showError(esc(e.message)); return; }
+  if(!st.ok){ setConn(true, "나이스 화면 연결됨"); showError("나이스 <b>일일출결관리(담임용)</b> 화면이 아닙니다. 그 화면에서 날짜를 고르고 [조회]한 뒤 [다시 읽기]를 눌러 주세요." + `<div style="margin-top:8px"><button class="btn" onclick="reread()">다시 읽기</button></div>`); return; }
+  setConn(true, "나이스 화면 연결됨");
+  S = st;
+  const d = `${st.ymd.slice(0,4)}-${st.ymd.slice(4,6)}-${st.ymd.slice(6,8)}`;
+  const label = `${+st.grd}-${+st.cls}`;
+  $("who").textContent = `${+st.grd}학년 ${+st.cls}반 · ${fmtDate(d)}`;
+  $("sub").textContent = `나이스에서 읽음 ${new Date().toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"})} · 학생 ${st.rows.length}명`;
+  try{ A = await loadApp(label, d); }catch(e){ showError(esc(e.message)); return; }
+  CMP = compare(S, A);
+  renderCompare();
+}
+
+/* ---------- 앱 자료 ---------- */
+async function loadApp(label, d){
+  const cls = must(await sb.from("classes").select("id,label").eq("label", label));
+  if(!cls.length) throw new Error(`출결 앱에서 ${label}반을 찾을 수 없습니다. 이 반의 관리자로 등록된 계정으로 로그인했는지 확인해 주세요.`);
+  const c = cls[0].id;
+  const q = t => sb.from(t).select("*").eq("class_id", c).eq("d", d);
+  const [st, nm, nd, tm, hm, dm, rf] = await Promise.all([
+    sb.from("students").select("*").eq("class_id", c).order("no"), q("neis_marks"), q("neis_day"), q("teacher_marks"), q("homeroom_marks"), q("day_manual"),
+    sb.from("neis_reflect").select("*").eq("class_id", c).eq("d", d)]);
+  const students = must(st), neis = must(nm), nday = must(nd), tmarks = must(tm);
+  const hmarks = hm.error ? [] : hm.data, dman = dm.error ? [] : dm.data, refl = rf.error ? [] : rf.data;
+  const N = new Set(neis.map(x => x.student_no + ":" + x.slot));
+  const T = new Map(tmarks.map(x => [x.student_no + ":" + x.period, x]));
+  const H = new Map(hmarks.map(x => [x.student_no + ":" + x.slot, x]));
+  const eff = (no, sl) => {
+    const t = /^\d+$/.test(sl) ? T.get(no + ":" + sl) : null; if(t) return t.kind;
+    const h = H.get(no + ":" + sl); if(h) return h.state;
+    return N.has(no + ":" + sl) ? "absent" : null;
+  };
+  return {c, d, label, students, N, D: new Map(nday.map(x => [x.student_no, x])), M: new Map(dman.map(x => [x.student_no, x])),
+          uploaded: neis.length + nday.length > 0, eff, reflect: refl[0] || null};
+}
+
+/* ---------- 비교 ---------- */
+// 칸별: same | fill(나이스 빈칸) | change(아침 업로드 그대로인데 앱이 바뀜) | conflict
+function judge(neisV, target, base){
+  if(neisV === target) return "same";
+  if(neisV === "") return "fill";
+  if(base !== null && neisV === base) return "change";
+  return "conflict";
+}
+function compare(S, A){
+  const out = [], warn = [];
+  const byNo = new Map(A.students.map(s => [s.no, s]));
+  for(const r of S.rows){
+    const s = byNo.get(r.no);
+    if(!s){ warn.push(`${r.no}번 ${r.name}: 출결 앱 명단에 없음 (건너뜀)`); continue; }
+    if(norm(s.name) !== norm(r.name)){ return {fatal: `${r.no}번 이름이 다릅니다 (나이스 ${esc(r.name)} / 앱 ${esc(s.name)}). 명단을 맞춘 뒤 다시 해 주세요.`}; }
+    if(s.excluded) continue;   // 위탁 학생은 건드리지 않음
+    const man = A.M.get(r.no), nd = A.D.get(r.no);
+    const fields = [];
+    for(const col of SLOT_COLS){
+      const key = colKey(col);
+      const has = col === "jo" || col === "jong" || r.has[col];
+      const want = A.eff(r.no, key) === "absent" ? "/" : "";
+      if(!has){ if(want) warn.push(`${r.no}번 ${s.name}: ${colName(col)} "/"는 나이스에 없는 교시라 건너뜀`); continue; }
+      const base = A.uploaded ? (A.N.has(r.no + ":" + key) ? "/" : "") : null;
+      fields.push({col, label: colName(col), neis: r.slots[col], want, j: judge(r.slots[col], want, base)});
+    }
+    const wantKind = norm(man ? man.kind : nd ? nd.kind : "");
+    const wantNote = norm(man ? man.note : nd ? nd.note : "");
+    fields.push({col:"chulgyulGb", label:"마감", neis: norm(r.mg), want: wantKind, j: judge(norm(r.mg), wantKind, A.uploaded ? norm(nd ? nd.kind : "") : null)});
+    fields.push({col:"atteRmkCn", label:"사유", neis: norm(r.rmk), want: wantNote, j: judge(norm(r.rmk), wantNote, A.uploaded ? norm(nd ? nd.note : "") : null)});
+    const diff = fields.filter(f => f.j !== "same");
+    const status = diff.some(f => f.j === "conflict") ? "conflict" : diff.some(f => f.j === "change") ? "change" : diff.length ? "fill" : "same";
+    const slashNoKind = fields.some(f => SLOT_COLS.includes(f.col) && f.want === "/") && !wantKind;
+    out.push({row: r.row, no: r.no, name: r.name, status, diff, choice: "neis", slashNoKind});
+  }
+  return {list: out, warn};
+}
+const TAG = {fill:["채움","c-fill"], change:["바꿈","c-change"], conflict:["충돌","c-conflict"], same:["같음","c-same"]};
+const slotText = (diff, which) => {
+  const s = diff.filter(f => SLOT_COLS.includes(f.col));
+  if(!s.length) return "";
+  return s.map(f => `${f.label} ${f[which] || "빈칸"}`).join(", ");
+};
+
+function renderCompare(){
+  if(CMP.fatal){ showError(CMP.fatal); return; }
+  const L = CMP.list, cnt = k => L.filter(x => x.status === k).length;
+  const todo = L.filter(x => x.status !== "same");
+  let h = "";
+  if(S.dayClosed) h += `<div class="alert red">이 날짜는 나이스에서 <b>출결마감</b>된 상태입니다. [마감취소] 후 [조회]하고 [다시 읽기]를 눌러 주세요.</div>`;
+  if(A.reflect) h += `<div class="alert ok">이 날짜는 ${new Date(A.reflect.at).toLocaleString("ko-KR", {month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit"})}에 반영 완료로 기록되어 있습니다.</div>`;
+  if(cnt("conflict")) h += `<div class="alert red" role="alert">⚠ 나이스에 이미 입력된 내용과 다른 학생이 ${cnt("conflict")}명 있습니다. 학생마다 어느 쪽으로 할지 골라 주세요.</div>`;
+  h += `<div class="chips">${["fill","change","conflict"].filter(k => cnt(k)).map(k => `<span class="chip ${TAG[k][1]}">${TAG[k][0]} ${cnt(k)}명</span>`).join("")}<span class="chip c-same">같음 ${cnt("same")}명 (숨김)</span></div>`;
+  if(CMP.warn.length) h += `<div class="alert warn">${CMP.warn.map(esc).join("<br>")}</div>`;
+  if(!todo.length) h += `<div class="alert ok">앱과 나이스가 모두 같습니다. 반영할 내용이 없습니다.</div>`;
+  const order = {conflict:0, change:1, fill:2};
+  for(const x of [...todo].sort((a, b) => order[a.status] - order[b.status] || a.no - b.no)){
+    h += `<section class="card ${x.status === "conflict" ? "conflict" : ""}"><div class="h"><b>${x.no}번 ${esc(x.name)}</b><span class="tag ${TAG[x.status][1]}">${TAG[x.status][0]}</span></div>
+      <table><thead><tr><th>항목</th><th>나이스 지금</th><th></th><th>앱</th></tr></thead><tbody>` +
+      x.diff.map(f => `<tr><td class="k">${esc(f.label)}</td><td class="n ${f.j === "conflict" ? "diff" : ""}">${esc(f.neis) || '<span class="mute">빈칸</span>'}</td><td class="arrow">→</td><td class="a">${esc(f.want) || '<span class="mute">빈칸</span>'}</td></tr>`).join("") +
+      `</tbody></table>` +
+      (x.slashNoKind ? `<div class="mute" style="font-size:12px">마감 종류가 비어 있습니다. 필요하면 앱 [오늘 출석부]의 마감 칸에서 먼저 입력해 주세요.</div>` : "") +
+      (x.status === "conflict" ? `<fieldset><legend class="mute" style="font-size:12px;padding:0 0 2px">어느 쪽으로 할까요?</legend>
+        <label><input type="radio" name="c${x.no}" value="neis" ${x.choice === "neis" ? "checked" : ""}> 나이스 그대로 두기</label>
+        <label><input type="radio" name="c${x.no}" value="app" ${x.choice === "app" ? "checked" : ""}> 앱 내용으로 바꾸기</label></fieldset>` : "") +
+      `</section>`;
+  }
+  $("main").innerHTML = h;
+  $("main").querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => { const x = L.find(y => "c" + y.no === r.name); x.choice = r.value; updateFoot(); });
+  updateFoot();
+}
+function planList(){ return CMP.list.filter(x => x.status === "fill" || x.status === "change" || (x.status === "conflict" && x.choice === "app")); }
+function updateFoot(){
+  const n = planList().length;
+  foot(`<div class="row"><button class="btn" id="bRe">다시 읽기</button><button class="btn pri" id="bFill" ${n && !S.dayClosed ? "" : "disabled"}>나이스에 채우기 (${n}명)</button></div><div class="note">채우기만 합니다. 저장은 나이스에서 직접 누릅니다.</div>`);
+  $("bRe").onclick = reread;
+  $("bFill").onclick = openConfirm;
+}
+
+/* ---------- 확인창 → 채우기 ---------- */
+function describe(x){
+  const k = x.diff.find(f => f.col === "chulgyulGb"), r = x.diff.find(f => f.col === "atteRmkCn");
+  const sl = x.diff.filter(f => SLOT_COLS.includes(f.col));
+  const parts = [];
+  if(k) parts.push(k.want ? `마감 ${k.want}` : "마감 지움");
+  if(sl.length){ const on = sl.filter(f => f.want === "/").map(f => f.label), off = sl.filter(f => f.want !== "/").map(f => f.label);
+    if(on.length) parts.push(on.join("·") + " /"); if(off.length) parts.push(off.join("·") + " 해제"); }
+  return parts.join(" · ") + (r ? `<br><span class="mute">사유: ${esc(r.want) || "지움"}</span>` : "");
+}
+function openConfirm(){
+  const P = planList(), keep = CMP.list.filter(x => x.status === "conflict" && x.choice === "neis");
+  const cnt = k => P.filter(x => x.status === k).length;
+  $("cfWho").textContent = $("who").textContent;
+  $("cfChips").innerHTML = [["fill", cnt("fill")], ["change", cnt("change")]].filter(a => a[1]).map(([k, n]) => `<span class="chip ${TAG[k][1]}">${TAG[k][0]} ${n}명</span>`).join("") +
+    (CMP.list.some(x => x.status === "conflict") ? `<span class="chip c-conflict">충돌 ${CMP.list.filter(x => x.status === "conflict").length}명 · 앱대로 ${cnt("conflict")} / 나이스 유지 ${keep.length}</span>` : "");
+  $("cfList").innerHTML = P.map(x => `<li><b>${x.no}번 ${esc(x.name)}</b> · ${describe(x)}</li>`).join("") +
+    keep.map(x => `<li class="mute"><b style="color:var(--ink)">${x.no}번 ${esc(x.name)}</b> · 나이스 그대로 둠 (건드리지 않음)</li>`).join("");
+  $("cfm").showModal();
+}
+$("cfNo").onclick = () => $("cfm").close();
+$("cfYes").onclick = async () => {
+  $("cfm").close();
+  const P = planList();
+  PLAN = P.map(x => ({row: x.row, no: x.no, name: x.name, set: Object.fromEntries(x.diff.map(f => [f.col, f.want]))}));
+  $("main").innerHTML = `<p class="mute">나이스 화면에 채우는 중…</p>`; $("foot").classList.add("hidden");
+  let res;
+  try{ res = (await ask("fill", {ymd: S.ymd, grd: S.grd, cls: S.cls, plan: PLAN}, 20000)).result; }
+  catch(e){ showError(esc(e.message)); return; }
+  if(!res.ok){
+    const why = {screen_changed: "나이스 화면의 날짜나 반이 바뀌었습니다. 아무것도 채우지 않았습니다.", closed: "출결마감된 날짜라 채우지 않았습니다.",
+                 row_mismatch: `${res.at ? res.at.no + "번" : ""} 학생 줄이 맞지 않아 멈췄습니다.`, write_failed: `채우는 중 오류로 멈췄습니다: ${esc(res.detail || "")}`, no_screen: "일일출결관리 화면을 찾지 못했습니다."}[res.error] || res.error;
+    showError(why + (res.done && res.done.length ? `<br>여기까지 채움: ${res.done.join(", ")}번 (나이스에서 [조회]를 다시 누르면 저장 안 한 내용은 사라집니다)` : "") + `<div style="margin-top:8px"><button class="btn" onclick="reread()">다시 읽기</button></div>`);
+    return;
+  }
+  LAST_FILL = {at: new Date(), count: res.done.length, nos: res.done, keep: CMP.list.filter(x => x.status === "conflict" && x.choice === "neis").map(x => x.no)};
+  verify(res.state);
+};
+
+/* ---------- 채운 뒤 확인 ---------- */
+function verify(st){
+  const miss = [];
+  for(const p of PLAN){
+    const r = st.rows[p.row];
+    if(!r || r.no !== p.no){ miss.push(`${p.no}번: 줄을 찾지 못함`); continue; }
+    for(const [col, v] of Object.entries(p.set)){
+      const cur = col === "chulgyulGb" ? norm(r.mg) : col === "atteRmkCn" ? norm(r.rmk) : r.slots[col];
+      if(cur !== v) miss.push(`${p.no}번 ${esc(p.name)} ${colName(col)}: 앱 "${esc(v) || "빈칸"}" · 나이스 "${esc(cur) || "빈칸"}"`);
+    }
+  }
+  const keepTxt = LAST_FILL.keep.length ? ` ${LAST_FILL.keep.join("·")}번은 나이스 그대로 두었습니다.` : "";
+  $("main").innerHTML = (miss.length
+      ? `<div class="alert red"><b>${miss.length}곳 불일치</b><br>${miss.join("<br>")}<br>나이스에서 직접 고친 뒤 [다시 확인]을 눌러 주세요.</div>`
+      : `<div class="alert ok" style="font-size:15px">✓ 채우기 완료 · ${PLAN.length}명 모두 일치<div style="font-weight:500;font-size:13px;margin-top:4px">나이스 화면을 다시 읽어 앱 내용과 하나하나 대조했습니다.${keepTxt}</div></div>`) +
+    `<section class="card"><b>이제 이렇게 하세요</b><ol style="margin:4px 0 0;padding-left:20px;line-height:1.9">
+      <li>나이스 화면에서 <b>선택(색칠)된 줄</b> 학생을 눈으로 확인</li><li>나이스 <b>[저장]</b> 클릭</li>
+      <li>저장 후 나이스 <b>[조회]</b>를 한 번 더 누르고 아래 <b>[다시 확인]</b> — 실제로 저장됐는지 확인</li><li><b>[반영 완료]</b> 클릭</li></ol></section>`;
+  foot(`<div class="row"><button class="btn" id="bChk">다시 확인</button><button class="btn pri" id="bDone">나이스 저장했어요 · 반영 완료</button></div><div class="note">앱의 오늘 출석부에 "나이스 반영 ✓"로 남습니다.</div>`);
+  $("bChk").onclick = async () => { try{ const st2 = (await ask("read")).state; if(!st2.ok || st2.ymd !== S.ymd){ showError("나이스 화면의 날짜가 바뀌었습니다. 처음부터 다시 해 주세요."); return; } verify(st2); }catch(e){ showError(esc(e.message)); } };
+  $("bDone").onclick = async () => {
+    try{
+      must(await sb.from("neis_reflect").upsert({class_id: A.c, d: A.d, by_email: ME, at: new Date().toISOString(),
+        summary: {filled: LAST_FILL.nos, kept: LAST_FILL.keep, mismatch: miss.length}}));
+      $("main").innerHTML = `<div class="alert ok" style="font-size:15px">반영 완료로 기록했습니다. 이 창은 닫아도 됩니다.</div>`;
+      foot(`<button class="btn" onclick="window.close()">창 닫기</button>`);
+    }catch(e){ alert("기록 실패: " + e.message); }
+  };
+}
+
+start();
+</script>
+</body>
+</html>
