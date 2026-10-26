@@ -672,7 +672,13 @@ async function loadClasses(keep){
   await onClassChange();
 }
 $("cls").onchange = () => { CUR = +$("cls").value; store.set("attend-class", CUR); onClassChange(); };
+let TAB_INIT = false;
 async function onClassChange(){
+  if(!TAB_INIT){   // 처음 열 때: 주소 끝(#doc 등)의 메뉴로 시작
+    TAB_INIT = true;
+    const h = location.hash.slice(1);
+    if(isTab(h)) $("tabs").querySelectorAll("button[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === h));
+  }
   const none = !CUR;
   $("noClass").classList.toggle("hidden", !none);
   $("noClassHint").textContent = SUPER ? "[반·관리자] 탭에서 반을 추가하세요." : "전체 관리자에게 반 등록을 요청하세요.";
@@ -686,7 +692,19 @@ async function onClassChange(){
 }
 
 /* ---------- 탭 ---------- */
+// 메뉴를 바꿀 때 주소 끝에 #메뉴 를 남겨 [뒤로]로 이전 메뉴에 돌아가게 함
+const isTab = t => { const b = t && $("tabs").querySelector(`button[data-t="${t}"]`); return !!b && !b.classList.contains("hidden"); };
+let FROM_HISTORY = false;
+window.addEventListener("popstate", () => {
+  const h = location.hash.slice(1) || "board";
+  if(!isTab(h) || h === tabNow()) return;          // 도움말 목차(#h1 등)는 무시
+  FROM_HISTORY = true; showTab(h); FROM_HISTORY = false;
+});
 function showTab(t){
+  if(!FROM_HISTORY && location.hash.slice(1) !== t){
+    if(!location.hash) history.replaceState(null, "", "#" + t);
+    else history.pushState(null, "", "#" + t);
+  }
   $("tabs").querySelectorAll("button[data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   $("schoolMenu").open = false;
   const global = GLOBAL_TABS.includes(t);
