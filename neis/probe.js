@@ -10,6 +10,7 @@
     if(!t) return "''";
     if(OK.test(t)) return t;
     if(/^\d{1,2}학년 \d{1,2}반 \d{4}\./.test(t)) return t.slice(0, 30);
+    if(/\d{7,}/.test(t) && !/^(J|S)\d{9}$|^\d{8}$|^20\d{8}$/.test(t)) return "〔숫자" + t.length + "〕";   // 주민번호 등 긴 숫자는 가림
     if(/^[\x20-\x7e]{1,40}$/.test(t)) return t;                 // 영문·숫자·기호(코드값)는 그대로
     return "〔" + t.length + "〕";
   }
@@ -43,10 +44,11 @@
         var pick = [0];
         for(var r = 0; r < rc; r++){ if(cols.some(function(c){ var v = safe(function(){ return ds.getValue(r, c); }, ""); return v === "/" || v === "Ø"; })){ pick.push(r); break; } }
         for(var r2 = 0; r2 < rc; r2++){ if(cols.some(function(c){ var v = String(safe(function(){ return ds.getValue(r2, c); }, "")); return /(지각|조퇴|결과|결석)$/.test(v); })){ if(pick.indexOf(r2) < 0) pick.push(r2); break; } }
-        pick.forEach(function(r){ add("    " + r + "행: " + cols.map(function(c){ return c + "=" + m(safe(function(){ return ds.getValue(r, c); })); }).join(" | ")); });
+        var SENS = /rrno|brdt|ipaddr|telno|addr|email|userid|invlno/i;
+        pick.forEach(function(r){ add("    " + r + "행: " + cols.map(function(c){ return c + "=" + (SENS.test(c) ? "〔가림〕" : m(safe(function(){ return ds.getValue(r, c); }))); }).join(" | ")); });
         add("    행 상태(0행): " + safe(function(){ return ds.getRowState(0); }));
       }
-      if(ds.type === "datamap"){ add("    값: " + cols.map(function(c){ return c + "=" + m(safe(function(){ return ds.getValue(c); })); }).join(" | ")); }
+      if(ds.type === "datamap"){ add("    값: " + cols.map(function(c){ return c + "=" + (/rrno|brdt|ipaddr|telno|addr|email|userid|invlno|userDtcNo/i.test(c) ? "〔가림〕" : m(safe(function(){ return ds.getValue(c); }))); }).join(" | ")); }
     });
     // 그리드
     ctrls.filter(function(c){ return c.type === "grid"; }).forEach(function(g){
