@@ -3,15 +3,19 @@
 (function (root) {
   function parseNeis(rows) {
     const reDate = /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./;
-    let date = null, cols = null, cls = null;
+    let date = null, dateSure = false, cols = null, cls = null;
     const students = new Map();
     for (const r of rows) {
       if (!r) continue;
-      if (!date) {
-        for (const c of r) {
-          const m = String(c ?? "").match(reDate);
-          if (m) { date = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`; break; }
-        }
+      // 출결 날짜는 "3학년 2반 2026.10.27.(화)" 줄에서 읽음.
+      // 맨 위의 날짜만 있는 칸은 파일을 내려받은 날(출력일)이라 출결 날짜가 아님 → 학년·반 줄이 없을 때만 씀
+      for (const c of r) {
+        const t = String(c ?? "");
+        const m = t.match(reDate);
+        if (!m) continue;
+        const d = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+        if (/학년\s*\d+\s*반/.test(t)) { date = d; dateSure = true; break; }
+        if (!date) date = d;
       }
       if (!cls) {
         for (const c of r) {
