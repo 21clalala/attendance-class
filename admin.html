@@ -411,6 +411,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li>급한 교체·대강: [시간표 변경] → 날짜 선택 → 그 교시 <b>교체·대강</b> 칸에 선생님 이름 → 저장.</li>
             <li>단축수업: 같은 화면에서 시각을 고치거나 수업 없는 교시의 체크를 끄고 저장. 우리 반에만 적용됩니다.</li>
             <li>담임 시간(기본: 금요일 5·6교시)에는 담임선생님 휴대폰에서 체크합니다.</li>
+            <li>조회 시간(08:00~08:50)에는 담임선생님이 교실 QR을 찍어 조회 출결을 입력할 수 있습니다. 담임 직접 입력으로 기록되고 알림은 가지 않습니다. (반·관리자에 담임 이름이 있어야 열립니다)</li>
           </ul>
         </div>
         <div class="card" id="h4"><h2>4. 교과선생님 사용법 (전달용)</h2>
@@ -632,11 +633,12 @@ function showTab(t){
 $("tabs").onclick = e => { const t = e.target.dataset.t; if(t) showTab(t); };
 
 /* ---------- 공통 데이터 ---------- */
-let BASE = {timetable:[], bell:[], wmax:[], home:[]};
+let BASE = {timetable:[], bell:[], wmax:[], home:[], morning:{s:"08:00", e:"08:50"}};
 async function loadBase(){
-  const [tt, bell, wm, hm] = await Promise.all([
+  const [tt, bell, wm, hm, mw] = await Promise.all([
     sb.from("timetable").select("*").eq("class_id", CUR), sb.from("bell_default").select("*").order("period"),
-    sb.from("weekday_max").select("*").order("weekday"), sb.from("homeroom_slot").select("*")]);
+    sb.from("weekday_max").select("*").order("weekday"), sb.from("homeroom_slot").select("*"), sb.rpc("morning_window")]);
+  if(!mw.error && mw.data && mw.data[0]) BASE.morning = {s: t5(mw.data[0].s), e: t5(mw.data[0].e)};
   BASE.timetable = must(tt); BASE.bell = must(bell); BASE.wmax = must(wm); BASE.home = hm.error ? [] : (hm.data || []);
 }
 const defaultTeacher = (d, p) => (BASE.timetable.find(r => r.weekday === isoDow(d) && r.period === p) || {}).teacher || "";
@@ -757,28 +759,33 @@ async function loadBoard(){
     };
     BOARD = {d, c, students, slots: null, N, T, H, D, M, eff};
     const slots = ["조회", ...schedule.map(x => String(x.period)), "종례"];
+    const hrName = (curClass().homeroom || "").trim();
+    const skey = x => x.period === 0 ? "조회" : String(x.period);
+    const pl = x => x.period === 0 ? "조회" : x.period + "교시";
+    const tl = (hrName && schedule.length ? [{period: 0, start: BASE.morning.s, end: BASE.morning.e, teacher: hrName}] : []).concat(schedule);
 
     // 지금 교시 (오늘만)
     const nowHM = new Intl.DateTimeFormat("en-GB", {timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", hour12:false}).format(new Date());
     const isToday = d === today;
-    const cur = isToday ? schedule.find(x => x.start <= nowHM && nowHM < x.end) : null;
-    const lastStarted = isToday ? [...schedule].reverse().find(x => x.start <= nowHM) : null;
+    const cur = isToday ? tl.find(x => x.start <= nowHM && nowHM < x.end) : null;
+    const lastStarted = isToday ? [...tl].reverse().find(x => x.start <= nowHM) : null;
     const focus = cur || lastStarted || null;     // 재실 계산 기준 교시
     const checked = new Set(logs.filter(l => !String(l.action).startsWith("hr_")).map(l => l.period));
+    if(logs.some(l => l.slot === "조회" && l.by_email === "QR")) checked.add(0);
 
     $("bTitle").textContent = isToday ? "오늘 출석부" : `${fmtDate(d)} 출석부`;
     $("bInfo").textContent = (isToday ? fmtDate(d) + " · " : "") +
-      (!schedule.length ? "수업 없는 날" : cur ? `지금 ${cur.period}교시 · ${cur.teacher || "선생님 미정"} 수업` : isToday && nowHM < schedule[0].start ? "수업 전" : isToday ? "수업 시간 아님" : `${schedule.length}교시`) +
+      (!schedule.length ? "수업 없는 날" : cur ? (cur.period === 0 ? `지금 조회 · ${cur.teacher}` : `지금 ${cur.period}교시 · ${cur.teacher || "선생님 미정"} 수업`) : isToday && nowHM < tl[0].start ? "수업 전" : isToday ? "수업 시간 아님" : `${schedule.length}교시`) +
       (neis.length || nday.length || ((curClass().setup || {}).last_upload === d) ? "" : " · 나이스 업로드 없음");
 
     // 교시별 체크 현황
-    $("bTimeline").innerHTML = schedule.map(x => {
+    $("bTimeline").innerHTML = tl.map(x => {
       let cls, st;
-      if(isToday && cur && cur.period === x.period){ cls = "now"; st = checked.has(x.period) ? "수업 중 · 체크함" : "수업 중 · 체크 대기"; }
+      if(isToday && cur && cur.period === x.period){ cls = "now"; st = (checked.has(x.period) ? "체크함" : "체크 대기") + (x.period === 0 ? " · 조회 중" : " · 수업 중"); }
       else if(checked.has(x.period)){ cls = "done"; st = "✓ 체크 완료"; }
       else if(d > today || (isToday && x.start > nowHM)){ cls = "next"; st = "예정"; }
       else { cls = "miss"; st = "체크 없음"; }
-      return `<li class="${cls}"><div class="lb">${x.period}교시 · ${esc(x.start)}</div><div class="tc">${esc(x.teacher || "미정")}${x.changed ? ' <span class="pill">교체</span>' : ""}</div><div class="st">${st}</div></li>`;
+      return `<li class="${cls}"><div class="lb">${pl(x)} · ${esc(x.start)}</div><div class="tc">${esc(x.teacher || "미정")}${x.changed ? ' <span class="pill">교체</span>' : ""}</div><div class="st">${st}</div></li>`;
     }).join("");
     $("bTimeline").classList.toggle("hidden", !schedule.length);
 
@@ -787,20 +794,20 @@ async function loadBoard(){
     const study = students.filter(s => !s.excluded && /자습/.test(s.tag || "")).length;
     let absent = null;
     if(focus){
-      const p = String(focus.period);
+      const p = skey(focus);
       absent = students.filter(s => !s.excluded && !/자습/.test(s.tag || "")).filter(s => eff(s.no, p).state === "absent").length;
     }
     $("bCount").innerHTML = enrolled ? (absent === null
         ? `<div class="big"><span class="mute">재적</span><b>${enrolled}</b><span class="mute">명</span></div>`
-        : `<div class="big"><span class="mute">${cur ? "지금 재실" : focus.period + "교시 재실"}</span><b>${enrolled - ex - study - absent}</b><span class="mute">/ ${enrolled}명</span></div>`) +
+        : `<div class="big"><span class="mute">${cur ? "지금 재실" : pl(focus) + " 재실"}</span><b>${enrolled - ex - study - absent}</b><span class="mute">/ ${enrolled}명</span></div>`) +
       `<div class="pills"><span>자습반<b>${study}</b></span><span>위탁<b>${ex}</b></span>${absent === null ? "" : `<span class="red">없음<b>${absent}</b></span>`}</div>` : "";
     $("bCount").classList.toggle("hidden", !enrolled);
 
     if(!students.length){ $("bTable").innerHTML = `<tr><td class="mute" style="padding:24px;text-align:left">명단이 없습니다. [우리 반 설정]에서 명단을 입력하거나 나이스 파일을 올리세요.</td></tr>`; $("bLog").innerHTML = `<span class="mute">기록 없음</span>`; return; }
-    const curP = cur ? String(cur.period) : "";
+    const curP = cur ? skey(cur) : "";
     BOARD.slots = slots;
     let h = `<thead><tr><th>번호</th><th style="text-align:left">이름</th><th>마감</th>${slots.map(s => {
-      const sc = schedule.find(x => String(x.period) === s);
+      const sc = tl.find(x => skey(x) === s);
       return `<th class="${s === curP ? "cur" : ""}">${/^\d+$/.test(s) ? s + "교시" : s}${sc && sc.teacher ? `<br><span style="font-weight:400">${esc(sc.teacher)}</span>` : ""}${sc && sc.changed ? ' <span class="pill">교체</span>' : ""}</th>`;
     }).join("")}<th style="text-align:left">비고</th></tr></thead><tbody>`;
     for(const s of students){
@@ -1021,6 +1028,7 @@ function renderTT(){
   $("ttTable").innerHTML = h + "</tbody>";
   const dis = SUPER ? "" : "disabled";
   $("bellTable").innerHTML = `<thead><tr><th>교시</th><th>시작</th><th>종료</th></tr></thead><tbody>` +
+    `<tr><td>조회 <span class="pill">담임</span></td><td><input type="time" id="mwS" value="${BASE.morning.s}" ${dis}></td><td><input type="time" id="mwE" value="${BASE.morning.e}" ${dis}></td></tr>` +
     Array.from({length:maxP}, (_, i) => i + 1).map(p => {
       const b = BASE.bell.find(x => x.period === p) || {};
       return `<tr><td>${p}교시</td><td><input type="time" data-bs="${p}" value="${t5(b.start_t)}" ${dis}></td><td><input type="time" data-be="${p}" value="${t5(b.end_t)}" ${dis}></td></tr>`;
@@ -1095,6 +1103,9 @@ $("bellSave").onclick = async () => {
     const bell = [...document.querySelectorAll("[data-bs]")].filter(i => i.value && document.querySelector(`[data-be="${i.dataset.bs}"]`).value)
       .map(i => ({period:+i.dataset.bs, start_t:i.value, end_t:document.querySelector(`[data-be="${i.dataset.bs}"]`).value}));
     if(bell.some(b => b.start_t >= b.end_t)) throw new Error("종료 시각이 시작 시각보다 빠른 교시가 있습니다.");
+    const ms = $("mwS").value, me = $("mwE").value;
+    if(!ms || !me || ms >= me) throw new Error("조회 시작·종료 시각을 확인해 주세요.");
+    must(await sb.from("config").upsert([{key:"morning_start", value:ms}, {key:"morning_end", value:me}]));
     must(await sb.from("bell_default").delete().gte("period", 1));
     must(await sb.from("bell_default").insert(bell));
     must(await sb.from("weekday_max").upsert([...document.querySelectorAll("[data-wm]")].map(s => ({weekday:+s.dataset.wm, max_period:+s.value}))));

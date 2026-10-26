@@ -152,7 +152,7 @@ function errText(e){
   if(m.includes("invalid_key")) return "주소가 올바르지 않습니다.<br>종이 출석부의 QR 코드를 다시 찍어 주세요.";
   if(m.includes("not_in_class")||m.includes("period_changed")) return "교시가 끝나 저장되지 않았습니다. 화면을 새로 불러왔습니다.";
   if(m.includes("not_your_period")) return "선생님 수업 시간이 아니라 저장되지 않았습니다.";
-  if(m.includes("no_teacher")) return "이 교시는 시간표에 선생님이 등록되어 있지 않습니다. 담임선생님께 알려 주세요.";
+  if(m.includes("no_teacher")) return S && S.period === 0 ? "담임선생님 이름이 등록되어 있지 않습니다. 관리자 페이지에서 담임 이름을 입력해 주세요." : "이 교시는 시간표에 선생님이 등록되어 있지 않습니다. 담임선생님께 알려 주세요.";
   return "연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.<br><small>"+m+"</small>";
 }
 
@@ -200,10 +200,16 @@ function changeMe(){
   setMe(""); pend.clear(); showPick();
 }
 
+// 교시 이름 (0 = 조회)
+const PL = p => p === 0 ? "조회" : p + "교시";
+const hasPer = () => !!S && S.period !== null && S.period !== undefined;
+const mineNow = () => hasPer() && S.teacher === ME;
+
 // 현재 교시 기준 학생 상태
 function stateOf(no){
   const cur = S.period;
-  const neis = S.neis.some(x => x.no === no && x.slot === String(cur));
+  const slot = S.slot || String(cur);
+  const neis = S.neis.some(x => x.no === no && x.slot === slot);
   const mk = (S.marks.find(x => x.no === no && x.period === cur) || {}).kind || null;
   const base = (neis && mk !== "present") || mk === "absent";     // 저장된 상태: 없음?
   const toggled = pend.has(no);
@@ -223,22 +229,22 @@ function render(){
   $("me").querySelector("b").textContent = ME;
   if(!DEMO){ const b = document.createElement("button"); b.className = "linkbtn"; b.textContent = "변경"; b.onclick = changeMe; $("me").appendChild(b); }
 
-  const isMine = !!S.period && S.teacher === ME;
+  const isMine = mineNow();
   const cur = isMine ? S.period : null;
   const curInfo = sch.find(x => x.period === cur);
-  if(S.period && !isMine){
+  if(hasPer() && !isMine){
     $("banner").className = "banner off";
-    $("banner").innerHTML = `<span class="per">지금은 ${S.period}교시 · <span class="who2"></span></span><span class="time"></span>`;
-    $("banner").querySelector(".who2").textContent = S.teacher ? `${S.teacher} 선생님 수업 시간입니다` : "시간표에 선생님이 등록되지 않은 시간입니다";
+    $("banner").innerHTML = `<span class="per">지금은 ${PL(S.period)} · <span class="who2"></span></span><span class="time"></span>`;
+    $("banner").querySelector(".who2").textContent = S.teacher ? (S.period === 0 ? `조회 시간입니다 (담임 ${S.teacher} 선생님)` : `${S.teacher} 선생님 수업 시간입니다`) : "시간표에 선생님이 등록되지 않은 시간입니다";
     $("banner").querySelector(".time").innerHTML = myPeriodsText(mineToday);
     $("hint").textContent = "선생님 수업 시간에만 출결을 입력할 수 있습니다. 교체·대강이면 담임선생님께 알려 주세요.";
     $("bar").classList.add("hidden");
-  }else if(cur){
+  }else if(cur !== null){
     $("banner").className = "banner";
-    $("banner").innerHTML = `<span class="per">${cur}교시</span><span class="who"></span><span class="time">${curInfo.start}~${curInfo.end}</span>`;
+    $("banner").innerHTML = `<span class="per">${PL(cur)}</span><span class="who"></span><span class="time">${curInfo.start}~${curInfo.end}</span>`;
     $("banner").querySelector(".who").textContent = (S.teacher || "시간표 미등록") + (S.teacher ? " 선생님" : "");
     if(DEMO) $("banner").insertAdjacentHTML("beforeend", `<span class="time" style="color:var(--red);font-weight:700">체험 모드 · 출결은 저장되지 않습니다</span>`);
-    $("hint").textContent = "없는 학생의 줄을 누르고 [저장]을 눌러 주세요. 회색 / 는 담임이 미리 표시한 학생입니다. 교실에 있으면 눌러서 해제해 주세요. 변경이 없어도 [저장]을 누르면 확인으로 기록됩니다.";
+    $("hint").textContent = cur === 0 ? "조회 시간입니다. 없는 학생의 줄을 누르고 [저장]을 눌러 주세요. 담임 직접 입력으로 기록되며 알림은 가지 않습니다." : "없는 학생의 줄을 누르고 [저장]을 눌러 주세요. 회색 / 는 담임이 미리 표시한 학생입니다. 교실에 있으면 눌러서 해제해 주세요. 변경이 없어도 [저장]을 누르면 확인으로 기록됩니다.";
     $("bar").classList.remove("hidden");
   }else{
     $("banner").className = "banner off";
@@ -249,9 +255,9 @@ function render(){
   }
 
   // 현재 교시 칸만 표시 (수업 시간이 아니면 출석부를 숨김)
-  document.querySelector(".tablebox").classList.toggle("hidden", !cur);
-  if(!cur){ $("tbl").innerHTML = ""; updateBar(); return; }
-  let html = `<thead><tr><th>번호</th><th>성명</th><th class="cur">${cur}교시</th></tr></thead><tbody>`;
+  document.querySelector(".tablebox").classList.toggle("hidden", cur === null);
+  if(cur === null){ $("tbl").innerHTML = ""; updateBar(); return; }
+  let html = `<thead><tr><th>번호</th><th>성명</th><th class="cur">${PL(cur)}</th></tr></thead><tbody>`;
   for(const st of S.students){
     const tappable = !st.excluded;
     let cls = "slot cur", txt = "";
@@ -275,7 +281,7 @@ function render(){
 
 function myPeriodsText(mine){
   if(!mine.length) return "오늘 이 반에 선생님 수업이 없습니다";
-  return "오늘 선생님 수업: " + mine.map(x => `<span class="mine">${x.period}교시</span> ${x.start}`).join(", ");
+  return "오늘 선생님 수업: " + mine.map(x => `<span class="mine">${PL(x.period)}</span> ${x.start}`).join(", ");
 }
 
 function toggle(no){
@@ -297,7 +303,7 @@ function headcount(){
   return c;
 }
 function updateCount(){
-  const on = !!(S && S.period && S.teacher === ME);
+  const on = mineNow();
   $("count").classList.toggle("hidden", !on);
   $("now").textContent = "";
   if(!on) return;
@@ -313,14 +319,14 @@ function updateCount(){
 function updateBar(){
   updateCount();
   let a = 0, p = 0;
-  if(S && S.period && S.teacher === ME) for(const no of pend){ stateOf(no).eff ? a++ : p++; }
+  if(mineNow()) for(const no of pend){ stateOf(no).eff ? a++ : p++; }
   $("sum").textContent = (a||p) ? [a?`없음으로 ${a}명`:"", p?`출석으로 ${p}명`:""].filter(Boolean).join(" · ") : "변경 없음";
   $("sum").style.color = a ? "var(--red)" : "";
-  $("save").disabled = saving || !(S && S.period && S.teacher === ME);
+  $("save").disabled = saving || !mineNow();
 }
 
 $("save").onclick = async () => {
-  if(saving || !S || !S.period || S.teacher !== ME) return;
+  if(saving || !mineNow()) return;
   const absent = [], present = [];
   for(const no of pend){ (stateOf(no).eff ? absent : present).push(no); }
   saving = true; updateBar(); $("save").textContent = "저장 중…";
@@ -333,7 +339,7 @@ $("save").onclick = async () => {
   if(data.present) parts.push(`출석 확인 ${data.present}명`);
   if(data.corrected) parts.push(`정정 ${data.corrected}명`);
   toast(DEMO ? (parts.length ? `저장했습니다 (${parts.join(", ")}). ` + (data.notified ? "담임선생님께 [체험] 알림이 갔습니다." : "체험 모드라 알림은 보내지 않았습니다.") : "확인했습니다 (변경 없음).")
-             : (parts.length ? `저장했습니다 (${parts.join(", ")}). 담임선생님께 알림이 갔습니다.` : "확인했습니다 (변경 없음)."));
+             : (parts.length ? `저장했습니다 (${parts.join(", ")}).` + (data.quiet ? "" : " 담임선생님께 알림이 갔습니다.") : "확인했습니다 (변경 없음)."));
   await load();
 };
 
