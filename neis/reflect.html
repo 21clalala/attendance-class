@@ -49,6 +49,19 @@ button{font:inherit;cursor:pointer}
 .card td.n.diff{color:var(--red);font-weight:700}
 .card td.a{font-weight:600}
 .arrow{color:var(--mute)}
+.gridbox{overflow-x:auto}
+table.sg{border-collapse:collapse;width:100%;font-size:12px;text-align:center;table-layout:fixed}
+table.sg th,table.sg td{border:1px solid var(--line2);padding:4px 2px;height:26px}
+table.sg thead th{color:var(--mute);font-weight:600;background:transparent;text-align:center;padding:4px 2px}
+table.sg thead th.hd{color:var(--ink)}
+table.sg tbody th{width:64px;text-align:left;padding-left:6px;color:var(--mute);font-weight:600;white-space:nowrap}
+table.sg td{font-weight:700;font-size:14px}
+table.sg td.dd{background:var(--oks)}
+table.sg td.dc{background:var(--reds);color:var(--red)}
+table.tr{border-collapse:collapse;width:100%;font-size:12px;margin-top:4px}
+table.tr td{padding:3px 6px 3px 0;vertical-align:top}
+table.tr td.k{color:var(--mute);width:36px;white-space:nowrap}
+.nold{color:var(--mute)}.nconf{color:var(--red);font-weight:700}
 fieldset{border:0;margin:0;padding:8px 0 0;border-top:1px solid var(--line2);display:flex;flex-direction:column;gap:4px;font-size:13px}
 fieldset label{display:flex;gap:8px;align-items:center;min-height:30px}
 .mute{color:var(--mute)}
@@ -201,7 +214,7 @@ function compare(S, A){
     const diff = fields.filter(f => f.j !== "same");
     const status = diff.some(f => f.j === "conflict") ? "conflict" : diff.some(f => f.j === "change") ? "change" : diff.length ? "fill" : "same";
     const slashNoKind = fields.some(f => SLOT_COLS.includes(f.col) && f.want === "/") && !wantKind;
-    out.push({row: r.row, no: r.no, name: r.name, status, diff, choice: "neis", slashNoKind});
+    out.push({row: r.row, no: r.no, name: r.name, status, diff, slots: fields.filter(f => SLOT_COLS.includes(f.col)), choice: "neis", slashNoKind});
   }
   const neisNos = new Set(S.rows.map(r => r.no));
   for(const s of A.students){
@@ -216,6 +229,21 @@ const slotText = (diff, which) => {
   return s.map(f => `${f.label} ${f[which] || "빈칸"}`).join(", ");
 };
 
+// 교시: 나이스 지금 / 앱 을 행으로, 교시를 열로
+function slotGrid(x){
+  if(!x.diff.some(f => SLOT_COLS.includes(f.col))) return "";
+  const short = f => f.col === "jo" ? "조회" : f.col === "jong" ? "종례" : f.col.slice(3);
+  const cell = (f, v) => `<td class="${f.j !== "same" ? (f.j === "conflict" ? "dc" : "dd") : ""}">${esc(v)}</td>`;
+  return `<div class="gridbox"><table class="sg"><thead><tr><th></th>${x.slots.map(f => `<th class="${f.j !== "same" ? "hd" : ""}">${short(f)}</th>`).join("")}</tr></thead><tbody>
+    <tr><th>나이스 지금</th>${x.slots.map(f => cell(f, f.neis)).join("")}</tr>
+    <tr><th>앱</th>${x.slots.map(f => cell(f, f.want)).join("")}</tr></tbody></table></div>`;
+}
+// 마감·사유: 다른 것만 "나이스 → 앱"
+function textRows(x){
+  const t = x.diff.filter(f => f.col === "chulgyulGb" || f.col === "atteRmkCn");
+  if(!t.length) return "";
+  return `<table class="tr">${t.map(f => `<tr><td class="k">${f.label}</td><td><span class="${f.j === "conflict" ? "nconf" : "nold"}">${esc(f.neis) || "빈칸"}</span> <span class="arrow">→</span> <b>${esc(f.want) || "빈칸"}</b></td></tr>`).join("")}</table>`;
+}
 function renderCompare(){
   if(CMP.fatal){ showError(CMP.fatal); return; }
   const L = CMP.list, cnt = k => L.filter(x => x.status === k).length;
@@ -229,10 +257,8 @@ function renderCompare(){
   if(!todo.length) h += `<div class="alert ok">앱과 나이스가 모두 같습니다. 반영할 내용이 없습니다.</div>`;
   const order = {conflict:0, change:1, fill:2};
   for(const x of [...todo].sort((a, b) => order[a.status] - order[b.status] || a.no - b.no)){
-    h += `<section class="card ${x.status === "conflict" ? "conflict" : ""}"><div class="h"><b>${x.no}번 ${esc(x.name)}</b><span class="tag ${TAG[x.status][1]}">${TAG[x.status][0]}</span></div>
-      <table><thead><tr><th>항목</th><th>나이스 지금</th><th></th><th>앱</th></tr></thead><tbody>` +
-      x.diff.map(f => `<tr><td class="k">${esc(f.label)}</td><td class="n ${f.j === "conflict" ? "diff" : ""}">${esc(f.neis) || '<span class="mute">빈칸</span>'}</td><td class="arrow">→</td><td class="a">${esc(f.want) || '<span class="mute">빈칸</span>'}</td></tr>`).join("") +
-      `</tbody></table>` +
+    h += `<section class="card ${x.status === "conflict" ? "conflict" : ""}"><div class="h"><b>${x.no}번 ${esc(x.name)}</b><span class="tag ${TAG[x.status][1]}">${TAG[x.status][0]}</span></div>` +
+      slotGrid(x) + textRows(x) +
       (x.slashNoKind ? `<div class="mute" style="font-size:12px">마감 종류가 비어 있습니다. 필요하면 앱 [오늘 출석부]의 마감 칸에서 먼저 입력해 주세요.</div>` : "") +
       (x.status === "conflict" ? `<fieldset><legend class="mute" style="font-size:12px;padding:0 0 2px">어느 쪽으로 할까요?</legend>
         <label><input type="radio" name="c${x.no}" value="neis" ${x.choice === "neis" ? "checked" : ""}> 나이스 그대로 두기</label>
