@@ -307,7 +307,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
         <span class="mute">xls · xlsx · 파일의 날짜에 그대로 적용됩니다</span>
         <input type="file" id="uFile" accept=".xls,.xlsx">
       </label>
-      <p class="mute" style="margin:10px 0 0">올린 파일의 출결은 파일의 날짜에 적용됩니다. 같은 날짜로 다시 올리면 그날 나이스 값이 새 파일 내용으로 바뀌고, 담임·교과선생님 입력은 그대로 남습니다.</p>
+      <p class="mute" style="margin:10px 0 0">올린 파일의 출결은 파일의 날짜에만 적용됩니다. 그날 앱에서 직접 입력한 칸(담임·교과선생님)이 파일과 다르면, 다른 학생만 보여 주고 학생마다 "앱 입력 유지 / 나이스 파일로"를 고르게 합니다.</p>
       <div id="uResult" style="margin-top:12px"></div>
     </div>
     <div class="tbox hidden" id="uPrevBox"><table id="uPrev"></table></div>
@@ -437,6 +437,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li><b>비고 칸</b>을 누르면 바로 고칠 수 있습니다. Enter 저장, Esc 취소.</li>
             <li><b>조회 시간</b>(08:00~08:50)에는 교실 QR을 찍어 휴대폰으로도 입력할 수 있습니다. 담임 입력이라 알림은 가지 않습니다.</li>
             <li>날짜를 바꾸면 지난 날짜도 같은 방법으로 고칠 수 있습니다.</li>
+            <li>나이스에서 직접 고친 날짜를 앱에 맞추려면 그 날짜의 나이스 파일을 [나이스 업로드]에 올리세요. 앱 입력과 다른 학생만 골라서 바꿀 수 있습니다.</li>
           </ul>
         </div>
 
@@ -913,6 +914,7 @@ async function loadBoard(){
       const memo = l.memo ? `<br><span class="mute">메모: ${esc(l.memo)}</span>` : "";
       if(l.action === "hr_set") return `<div><b class="c">담임</b> ${where} ${esc(name(l.student_no))} ${stTxt(l.before)} → ${stTxt(l.after)}<span class="tm">${tm}</span>${memo}</div>`;
       if(l.action === "hr_override") return `<div><b class="c">담임 수정</b> ${where} ${esc(name(l.student_no))} · 교과(${esc(l.teacher || "")}) ${stTxt(l.before)} → ${stTxt(l.after)}<span class="tm">${tm}</span>${memo}</div>`;
+      if(l.action === "neis_file") return `<div><b class="c">파일</b> ${esc(name(l.student_no))} 앱 입력 → 나이스 파일 내용으로<span class="tm">${tm}</span></div>`;
       if(l.action === "hr_note") return `<div><b class="c">비고</b> ${esc(name(l.student_no))} ${esc(l.before || "없음")} → ${esc(l.after || "없음")}<span class="tm">${tm}</span></div>`;
       if(l.action === "hr_kind") return `<div><b class="c">마감</b> ${esc(name(l.student_no))} ${esc(l.before || "없음")} → ${esc(l.after || "없음")}<span class="tm">${tm}</span>${memo}</div>`;
       const [label, cls] = act[l.action] || [l.action, "c"];
@@ -1097,9 +1099,65 @@ $("uFile").onchange = e => handleUpload(e.target.files[0]);
 ["dragenter", "dragover"].forEach(ev => $("uDrop").addEventListener(ev, e => { e.preventDefault(); $("uDrop").classList.add("over"); }));
 ["dragleave", "drop"].forEach(ev => $("uDrop").addEventListener(ev, e => { e.preventDefault(); $("uDrop").classList.remove("over"); }));
 $("uDrop").addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if(f) handleUpload(f); });
+// 1단계: 그날 앱에서 직접 입력한 칸과 파일이 다른 학생 찾기
 async function applyUpload(){
   const P = PARSED, c = CUR; if(!P || !c) return;
-  $("uApply").disabled = true; say("uMsg", "적용 중…", "mute");
+  $("uApply").disabled = true; say("uMsg", "앱 입력과 비교 중…", "mute");
+  try{
+    const q = t => sb.from(t).select("*").eq("class_id", c).eq("d", P.date);
+    const [tm, hm, dm] = await Promise.all([q("teacher_marks"), q("homeroom_marks"), q("day_manual")]);
+    const T = must(tm), H = hm.error ? [] : hm.data, M = dm.error ? [] : dm.data;
+    const norm = v => String(v ?? "").replace(/\s+/g, " ").trim();
+    const slotName = sl => /^\d+$/.test(sl) ? sl + "교시" : sl;
+    const conflicts = [];
+    for(const f of P.students){
+      if(f.excluded) continue;
+      const keys = new Set([...f.slots, ...T.filter(x => x.student_no === f.no).map(x => String(x.period)), ...H.filter(x => x.student_no === f.no).map(x => x.slot)]);
+      const diffs = [];
+      for(const sl of [...keys].sort((a, b) => (a === "조회" ? -1 : a === "종례" ? 99 : +a) - (b === "조회" ? -1 : b === "종례" ? 99 : +b))){
+        const fileV = f.slots.includes(sl) ? "absent" : "present";
+        const t = /^\d+$/.test(sl) ? T.find(x => x.student_no === f.no && String(x.period) === sl) : null;
+        const h = H.find(x => x.student_no === f.no && x.slot === sl);
+        const appV = t ? t.kind : h ? h.state : null;
+        if(appV && appV !== fileV) diffs.push({label: slotName(sl), app: appV === "absent" ? "/" : "해제", file: fileV === "absent" ? "/" : "빈칸"});
+      }
+      const man = M.find(x => x.student_no === f.no);
+      if(man && norm(man.kind) !== norm(f.kind)) diffs.push({label: "마감", app: norm(man.kind) || "없음", file: norm(f.kind) || "없음"});
+      if(man && norm(man.note) !== norm(f.note)) diffs.push({label: "비고", app: norm(man.note) || "없음", file: norm(f.note) || "없음"});
+      if(diffs.length) conflicts.push({no: f.no, name: f.name, diffs, choice: null});
+    }
+    if(!conflicts.length){ await doApplyUpload([]); return; }
+    renderUploadConflicts(conflicts);
+  }catch(e){ say("uMsg", "비교 실패: " + e.message, "err"); $("uApply").disabled = false; }
+}
+function renderUploadConflicts(list){
+  say("uMsg", "", "mute");
+  let box = $("uConf");
+  if(!box){ box = document.createElement("div"); box.id = "uConf"; box.className = "card"; box.style.marginTop = "12px"; $("uResult").after(box); }
+  const draw = () => {
+    const ready = list.every(x => x.choice);
+    box.innerHTML = `<h2 style="margin-top:0;color:var(--red)">앱에서 직접 입력한 내용과 다른 학생 ${list.length}명</h2>
+      <p class="mute" style="margin:0 0 10px;font-size:14px">${fmtDate(PARSED.date)}에 앱에서 입력한 칸이 이 파일과 다릅니다. 학생마다 어느 쪽을 쓸지 고르세요. 나머지 학생은 파일 내용으로 적용됩니다.</p>
+      <div class="row" style="margin-bottom:10px"><button class="btn ghost sm" id="ucAllFile">모두 나이스 파일로</button><button class="btn ghost sm" id="ucAllApp">모두 앱 입력 유지</button></div>
+      <div class="tbox"><table><thead><tr><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">다른 칸 (앱 → 파일)</th><th>선택</th></tr></thead><tbody>` +
+      list.map((x, i) => `<tr><td>${x.no}</td><td class="l">${esc(x.name)}</td><td class="l" style="font-size:13px">${x.diffs.map(d => `${esc(d.label)}: <b>${esc(d.app)}</b> → <b>${esc(d.file)}</b>`).join("<br>")}</td>
+        <td style="white-space:nowrap;text-align:left"><label style="display:block"><input type="radio" name="uc${i}" value="app" ${x.choice === "app" ? "checked" : ""}> 앱 입력 유지</label>
+        <label style="display:block"><input type="radio" name="uc${i}" value="file" ${x.choice === "file" ? "checked" : ""}> 나이스 파일로</label></td></tr>`).join("") +
+      `</tbody></table></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="ucGo" ${ready ? "" : "disabled"}>선택대로 적용</button><button class="btn ghost" id="ucCancel">취소</button>
+      <span class="mute" style="font-size:13px">${ready ? `파일로 ${list.filter(x => x.choice === "file").length}명 · 앱 유지 ${list.filter(x => x.choice === "app").length}명` : `${list.filter(x => !x.choice).length}명 더 골라 주세요`}</span></div>`;
+    box.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => { list[+r.name.slice(2)].choice = r.value; draw(); });
+    $("ucAllFile").onclick = () => { list.forEach(x => x.choice = "file"); draw(); };
+    $("ucAllApp").onclick = () => { list.forEach(x => x.choice = "app"); draw(); };
+    $("ucCancel").onclick = () => { box.remove(); $("uApply").disabled = false; };
+    $("ucGo").onclick = async () => { $("ucGo").disabled = true; await doApplyUpload(list.filter(x => x.choice === "file").map(x => x.no)); box.remove(); };
+  };
+  draw();
+}
+// 2단계: 적용 (useFile: 앱 입력을 지우고 파일 내용을 쓸 학생 번호)
+async function doApplyUpload(useFile){
+  const P = PARSED, c = CUR; if(!P || !c) return;
+  say("uMsg", "적용 중…", "mute");
   try{
     // 명단: 새 학생 추가·이름 수정만 (표시·삭제는 명단 칸에서 관리)
     const existing = new Map(must(await sb.from("students").select("no,tag").eq("class_id", c)).map(s => [s.no, s]));
@@ -1110,7 +1168,12 @@ async function applyUpload(){
     must(await sb.from("neis_day").delete().eq("class_id", c).eq("d", P.date));
     const days = P.students.filter(s => s.kind || s.note).map(s => ({class_id:c, d:P.date, student_no:s.no, kind:s.kind || null, note:s.note || null}));
     if(days.length) must(await sb.from("neis_day").insert(days));
-    say("uMsg", `적용 완료 ("/" ${marks.length}칸)`, "ok");
+    for(const no of useFile){
+      for(const t of ["teacher_marks", "homeroom_marks", "day_manual"]) must(await sb.from(t).delete().match({class_id:c, d:P.date, student_no:no}));
+    }
+    if(useFile.length) must(await sb.from("mark_log").insert(useFile.map(no => ({class_id:c, d:P.date, student_no:no, period:null, slot:null, action:"neis_file",
+      teacher:"담임", before:"앱 입력", after:"나이스 파일", by_email:ME_EMAIL, memo:null}))));
+    say("uMsg", `적용 완료 ("/" ${marks.length}칸${useFile.length ? ` · 나이스 파일로 바꾼 학생 ${useFile.length}명` : ""})`, "ok");
     const prev = (curClass().setup || {}).last_upload || "";
     if(P.date >= prev) await saveSetup({last_upload: P.date});
     $("bDate").value = P.date;
