@@ -167,6 +167,7 @@ dialog.kd::backdrop{background:rgba(0,0,0,.4)}
 dialog.fm{width:min(980px,calc(100% - 32px))}
 dialog.fm .fmbody{padding:14px 18px 18px}
 #fmTable{font-size:13px;min-width:760px}
+.lnkb{background:none;border:0;padding:0;color:var(--ok);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline}
 .seg{display:inline-flex}.seg .btn{border-radius:0}.seg .btn:first-child{border-radius:8px 0 0 8px}.seg .btn:last-child{border-radius:0 8px 8px 0}.seg .btn + .btn{margin-left:-1px}
 .seg .btn.on{background:var(--ok);color:#fff;border-color:var(--ok)}
 /* 증빙서류 종류별 색(파스텔): 출결신고서=하늘, 응시확인증=레몬, 보고서=코랄 */
@@ -260,6 +261,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       <button data-t="upload">나이스 업로드</button>
       <button data-t="day">시간표 변경</button>
       <button data-t="doc">출결신고서(증빙서류)</button>
+      <button data-t="trip">교외체험학습</button>
       <button data-t="set">우리 반 설정</button>
       <button data-t="help">사용 도움말</button>
       <details class="more hidden" id="schoolMenu"><summary>학교 관리</summary>
@@ -288,7 +290,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <div class="card setup hidden" id="setupCard"></div>
     <div class="pagehead">
       <div><h1 id="bTitle">오늘 출석부</h1><span class="sub" id="bInfo"></span></div>
-      <div class="row"><input type="date" id="bDate" aria-label="날짜"><button class="btn ghost" id="bToday">오늘</button><button class="btn ghost" id="bForm">신고서 출력</button></div>
+      <div class="row"><input type="date" id="bDate" aria-label="날짜"><button class="btn ghost" id="bToday">오늘</button><button class="btn ghost" id="bForm">신고서 출력</button><button class="btn ghost" id="bTrip">체험학습 등록</button></div>
     </div>
     <ol class="tl" id="bTimeline" aria-label="교시별 체크 현황"></ol>
     <div class="countbar" id="bCount"></div>
@@ -313,6 +315,23 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       <p class="mute" style="font-size:12px;margin:8px 0 0">HWPX 파일로 내려받아 한글에서 열어 인쇄합니다. 학생당 1쪽, 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</p>
     </div>
     <input type="file" id="fmTplFile" accept=".hwpx" hidden><input type="file" id="fmTplFile2" accept=".hwpx" hidden>
+  </dialog>
+  <dialog class="kd" id="tripDlg" aria-labelledby="tdTitle" style="width:min(600px,calc(100% - 32px))">
+    <div class="top"><span id="tdTitle">학교장허가 교외체험학습 등록</span><button type="button" id="tdX" aria-label="닫기">×</button></div>
+    <div style="padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px">
+      <label class="row" style="align-items:center">학생 <select id="tdStu" style="flex:1"></select></label>
+      <div class="row" style="align-items:center;flex-wrap:wrap">기간 <input type="date" id="tdFrom"> ~ <input type="date" id="tdTo"></div>
+      <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px"><legend class="mute" style="font-size:13px;padding:0 0 4px">형태</legend>
+        <label><input type="radio" name="tdForm" value="full" checked> 하루 종일 <span class="mute" style="font-size:13px">(출석인정결석 · 조회~종례 "/")</span></label>
+        <label><input type="radio" name="tdForm" value="half"> 일부 교시 <span class="mute" style="font-size:13px">(하루만 · 빠지는 교시 선택)</span></label></fieldset>
+      <div id="tdHalf" class="hidden" style="display:flex;flex-direction:column;gap:8px">
+        <div class="row" id="tdSlots" style="gap:6px;flex-wrap:wrap"></div>
+        <div class="mute" style="font-size:12px;line-height:1.7;background:var(--head);border-radius:10px;padding:10px 12px" id="tdRule"></div>
+      </div>
+      <div id="tdPrev" style="background:var(--head);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.7"></div>
+      <label class="row" style="align-items:center">메모 <input id="tdMemo" placeholder="(선택) 행선지 등" style="flex:1"></label>
+      <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="tdCancel">취소</button><button class="btn" id="tdOk">등록</button></div>
+    </div>
   </dialog>
   <dialog class="kd" id="kindDlg" aria-labelledby="kdTitle">
     <div class="top"><span id="kdTitle">출결마감구분</span><button type="button" id="kdX" aria-label="닫기">×</button></div>
@@ -349,6 +368,32 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       <div id="uResult" style="margin-top:12px"></div>
     </div>
     <div class="tbox hidden" id="uPrevBox"><table id="uPrev"></table></div>
+  </section>
+
+  <!-- 교외체험학습 -->
+  <section data-p="trip" class="hidden">
+    <div class="pagehead">
+      <div><h1><span class="clsName"></span> 교외체험학습</h1><span class="sub" id="tpSub"></span></div>
+      <div class="row" style="align-items:center">
+        <button class="btn ghost sm" id="tpPrev" aria-label="이전 학년도">◀</button><b id="tpAy"></b><button class="btn ghost sm" id="tpNext" aria-label="다음 학년도">▶</button>
+        <button class="btn ghost" id="tpImpBtn">이전 기록 붙여넣기</button><button class="btn" id="tpAddBtn">+ 체험학습 등록</button>
+      </div>
+    </div>
+    <details class="card" style="margin-bottom:14px"><summary style="cursor:pointer;font-weight:600">반일 처리 규정 (담임 안내)</summary>
+      <div class="mute" style="font-size:14px;line-height:1.8;margin-top:8px" id="tpRule"></div></details>
+    <div class="card hidden" id="tpImp"></div>
+    <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div class="card" style="flex:1 1 360px;padding:0;overflow:hidden">
+        <div style="padding:12px 16px;font-weight:700;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center">학생별 사용 일수 <button class="btn ghost sm" id="tpAllBtn">모든 학생</button></div>
+        <div class="tbox" style="border:0;border-radius:0"><table id="tpUse"></table></div>
+      </div>
+      <div class="card" style="flex:999 1 620px;min-width:0;padding:0;overflow:hidden">
+        <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line2);flex-wrap:wrap;gap:8px"><b>회차 목록</b>
+          <span class="seg" role="group" aria-label="보기"><button class="btn ghost sm" data-tpf="all">전체</button><button class="btn ghost sm dk3" data-tpf="due">보고서 미제출</button></span></div>
+        <div class="tbox" style="border:0;border-radius:0"><table id="tpList"></table></div>
+      </div>
+    </div>
+    <p id="tpMsg"></p>
   </section>
 
   <!-- 출결신고서 -->
@@ -462,7 +507,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <div class="help">
       <nav class="card toc" aria-label="도움말 목차">
         <a href="#h1">1. 처음 한 번 설정</a><a href="#h2">2. 매일 할 일</a><a href="#h3">3. 나이스에 반영하기</a>
-        <a href="#h4">4. 출결신고서·증빙서류</a><a href="#h5">5. 시간표 변경</a><a href="#h6">6. 교과선생님 사용법</a>
+        <a href="#h4">4. 출결신고서·증빙서류</a><a href="#h4b">교외체험학습</a><a href="#h5">5. 시간표 변경</a><a href="#h6">6. 교과선생님 사용법</a>
         <a href="#h7">7. 출석부 읽는 법</a><a href="#h8">8. 자주 묻는 질문</a>
       </nav>
       <div class="body">
@@ -512,6 +557,16 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li><b>신고서 출력:</b> [출결신고서(증빙서류)] → [출결신고서 만들기]를 누르면 그 달 미제출 학생의 신고서를 한 파일(HWPX)로 만듭니다. 한 날짜만 필요하면 [오늘 출석부] → [신고서 출력]. 한글에서 열어 인쇄하세요. 사유 체크는 비고 괄호 안 내용으로 자동 체크되고, [고치기]로 바꿀 수 있습니다. 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</li>
             <li>서류를 받으면 [제출 완료]를 누르세요. 목록에서 사라지고, 그날 비고의 "미제출" 문구도 지워집니다(나이스 반영 때도 지워진 비고로 들어갑니다). 잘못 눌렀으면 [제출 완료 보기]에서 취소하면 비고가 원래대로 돌아옵니다.</li>
             <li>남은 미제출이 있으면 수업이 있는 날 아침 08:00에 휴대폰으로 알림이 옵니다.</li>
+          </ul>
+        </div>
+
+        <div class="card" id="h4b"><h2>교외체험학습</h2>
+          <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
+            <li>[교외체험학습] → [+ 체험학습 등록]에서 학생과 기간을 고르면 수업일(주말·휴일 제외)마다 출석인정결석, 조회~종례 "/", 비고 "출석인정결석(학교장허가 교외체험학습) 보고서 미제출"이 자동으로 들어갑니다. [오늘 출석부]의 [체험학습 등록]으로도 열 수 있습니다.</li>
+            <li>일부 교시: 빠지는 교시를 고르면 수업 3차시 이하(그날 수업을 1차시 이상 들은 경우)는 반일 0.5일, 그 밖은 1일로 셉니다. 마감 종류(지각·조퇴·결과)도 자동으로 정해집니다.</li>
+            <li>학생별 사용 일수(학년도 20일 이내)를 보여 주고, 넘으면 경고합니다. 보고서는 회차당 [제출 완료] 한 번이면 그 기간 비고의 "보고서 미제출"이 모두 지워집니다.</li>
+            <li>이 앱 전에 관리하던 기록은 [이전 기록 붙여넣기]로 엑셀 표를 붙여넣으세요. 같은 기록은 건너뛰고, 겹치는 기록은 고를 수 있습니다. 표가 없으면 사용 일수 표에서 학생 이름을 눌러 이전 일수만 입력해도 됩니다.</li>
+            <li>회차를 [삭제]하면 그 회차가 출석부에 넣은 "/"·마감·비고도 함께 지워집니다.</li>
           </ul>
         </div>
 
@@ -762,6 +817,7 @@ function showTab(t){
   if(t === "day") loadDay();
   if(t === "set") loadSettings();
   if(t === "doc") loadDoc();
+  if(t === "trip" && window.loadTrip) loadTrip();
   if(t === "adm") loadAdm();
   if(t === "comci") loadComci();
 }
@@ -867,7 +923,7 @@ async function loadBoard(){
   if(!CUR) return;
   const d = $("bDate").value || kstToday(), c = CUR, today = kstToday();
   try{
-    const [st, nm, nd, tm, sch, lg, hm, dm, rf, hol] = await Promise.all([
+    const [st, nm, nd, tm, sch, lg, hm, dm, rf, hol, trq] = await Promise.all([
       sb.from("students").select("*").eq("class_id", c).order("no"),
       sb.from("neis_marks").select("*").eq("class_id", c).eq("d", d),
       sb.from("neis_day").select("*").eq("class_id", c).eq("d", d),
@@ -877,7 +933,8 @@ async function loadBoard(){
       sb.from("homeroom_marks").select("*").eq("class_id", c).eq("d", d),
       sb.from("day_manual").select("*").eq("class_id", c).eq("d", d),
       sb.from("neis_reflect").select("*").eq("class_id", c).eq("d", d),
-      sb.from("holiday").select("name").eq("d", d)]);
+      sb.from("holiday").select("name").eq("d", d),
+      sb.from("trip").select("*").eq("class_id", c).eq("source", "app").lte("start_d", d).gte("end_d", d)]);
     if(c !== CUR) return;
     const students = must(st), neis = must(nm), nday = must(nd), tmarks = must(tm), schedule = must(sch), logs = must(lg);
     const hmarks = hm.error ? [] : (hm.data || []), dman = dm.error ? [] : (dm.data || []);
@@ -894,6 +951,7 @@ async function loadBoard(){
       if(hh) return {state: hh.state, src: "h", h: hh};
       return N.has(no + ":" + sl) ? {state: "absent", src: "n"} : {state: null, src: null};
     };
+    BOARD_TRIPS = trq.error ? [] : (trq.data || []);
     BOARD = {d, c, students, slots: null, N, T, H, D, M, eff};
     const slots = ["조회", ...schedule.map(x => String(x.period)), "종례"];
     const hrName = (curClass().homeroom || "").trim();
@@ -951,7 +1009,7 @@ async function loadBoard(){
       const nd_ = D.get(s.no) || {};
       const man = M.get(s.no);
       const kind = man ? man.kind : nd_.kind, note = man ? man.note : nd_.note;
-      h += `<tr class="${s.excluded ? "ex" : ""}"><td class="mute">${s.no}</td><td class="l" style="font-weight:600">${esc(s.name)}${s.tag ? ` <span class="pill">${esc(s.tag)}</span>` : ""}</td>` +
+      h += `<tr class="${s.excluded ? "ex" : ""}"><td class="mute">${s.no}</td><td class="l" style="font-weight:600">${esc(s.name)}${s.tag ? ` <span class="pill">${esc(s.tag)}</span>` : ""}${(BOARD_TRIPS || []).filter(t => t.student_no === s.no).map(t => ` <span class="pill dk3" title="${esc(t.memo || "")}">체험학습 ${t.start_d === t.end_d ? (t.half ? "일부 교시" : "") : `${+t.start_d.slice(5,7)}.${+t.start_d.slice(8)}~${+t.end_d.slice(5,7)}.${+t.end_d.slice(8)}`}</span>`).join("")}</td>` +
         `<td class="kind" data-kno="${s.no}" title="눌러서 마감 종류·사유 입력">${kind ? esc(kind) + (man ? '<span class="mine">담임</span>' : "") : '<span class="add">+ 입력</span>'}</td>`;
       for(const sl of slots){
         const e = eff(s.no, sl);
@@ -1016,7 +1074,7 @@ function editNote(td){
 }
 
 /* ---------- 담임 직접 입력 ---------- */
-let BOARD = null;
+let BOARD = null, BOARD_TRIPS = [];
 const logRow = (r) => ({class_id: BOARD.c, d: BOARD.d, student_no: r.no, period: /^\d+$/.test(r.slot || "") ? +r.slot : null, slot: r.slot || null,
   action: r.action, teacher: r.teacher || "담임", before: r.before ?? null, after: r.after ?? null, by_email: ME_EMAIL, memo: r.memo || null});
 
@@ -1312,9 +1370,24 @@ async function loadDoc(){
   const c = CUR, ym = DOC_M, [from, to] = monthRange(ym);
   $("docMonth").textContent = `${+ym.slice(0, 4)}년 ${+ym.slice(5)}월`;
   try{
-    let rows = must(await sb.rpc("doc_list", {p_class: c, p_from: from, p_to: to}));
+    const [dl, tr] = await Promise.all([sb.rpc("doc_list", {p_class: c, p_from: from, p_to: to}),
+      sb.from("trip").select("*").eq("class_id", c).eq("source", "app").lte("start_d", to).gte("end_d", from)]);
+    let rows = must(dl);
     if(c !== CUR || ym !== DOC_M) return;
-    const all = rows; DOC_ALL = rows;
+    DOC_ALL = rows;
+    // 체험학습 보고서: 같은 회차의 날짜들을 한 줄로
+    const trips = tr.error ? [] : (tr.data || []);
+    const grouped = new Map(), out = [];
+    for(const r of rows){
+      const t = r.doc === "보고서" && trips.find(t => t.student_no === r.student_no && r.d >= t.start_d && r.d <= t.end_d);
+      if(!t){ out.push(r); continue; }
+      const g = grouped.get(t.id);
+      if(!g){ const ng = {...r, d2: r.d, trip: t, days: [r]}; grouped.set(t.id, ng); out.push(ng); }
+      else { g.days.push(r); if(r.d < g.d) g.d = r.d; if(r.d > g.d2) g.d2 = r.d; g.elapsed = Math.min(g.elapsed, r.elapsed); }
+    }
+    for(const g of grouped.values()) g.submitted = g.days.every(x => x.submitted) || !!g.trip.report_at;
+    rows = out;
+    const all = rows;
     document.querySelectorAll("[data-dkind]").forEach(b => {
       const k = b.dataset.dkind, n = all.filter(r => !r.submitted && (k === "전체" || r.doc === k)).length;
       b.textContent = k + (n ? ` ${n}` : ""); b.classList.toggle("on", k === DOC_KIND); b.setAttribute("aria-pressed", k === DOC_KIND);
@@ -1334,39 +1407,50 @@ async function loadDoc(){
     $("docTable").closest(".tbox").classList.toggle("hidden", !rows.length);
     $("docTable").innerHTML = !rows.length ? "" :
       `<thead><tr><th>날짜</th><th>번호</th><th style="text-align:left">이름</th><th>서류</th><th style="text-align:left">마감 · 사유</th><th>경과 수업일</th><th>제출</th></tr></thead><tbody>` +
-      rows.map(r => `<tr${r.submitted ? ' style="opacity:.6"' : ""}><td>${fmtDate(r.d)}</td><td>${r.student_no}</td><td style="text-align:left">${esc(r.name || "")}</td>` +
+      rows.map(r => `<tr${r.submitted ? ' style="opacity:.6"' : ""}><td>${r.trip ? `${fmtDate(r.d).slice(5)} ~ ${fmtDate(r.d2).slice(5)}<br><span class="mute" style="font-size:12px">체험학습 ${r.days.length}일</span>` : fmtDate(r.d)}</td><td>${r.student_no}</td><td style="text-align:left">${esc(r.name || "")}</td>` +
         `<td><span class="pill ${DK_CLS[r.doc] || ""}">${esc(r.doc)}</span></td><td style="text-align:left">${esc(docLabel(r.kind, r.note))}</td><td>${r.submitted ? "—" : r.elapsed + "일"}</td>` +
-        `<td>${r.submitted ? `<button class="btn ghost sm" data-undoc="${r.d}|${r.student_no}" title="${esc(new Date(r.submitted_at).toLocaleString("ko-KR"))}">✓ 제출함 · 취소</button>`
-                           : `<button class="btn sm ${DK_CLS[r.doc] || ""}" data-doc="${r.d}|${r.student_no}">제출 완료</button>`}</td></tr>`).join("") + "</tbody>";
+        `<td>${r.trip ? (r.submitted ? `<button class="btn ghost sm" data-tripundo="${r.trip.id}">✓ 제출함 · 취소</button>` : `<button class="btn sm dk3" data-tripdoc="${r.trip.id}">제출 완료</button>`)
+                  : r.submitted ? `<button class="btn ghost sm" data-undoc="${r.d}|${r.student_no}" title="${esc(new Date(r.submitted_at).toLocaleString("ko-KR"))}">✓ 제출함 · 취소</button>`
+                  : `<button class="btn sm ${DK_CLS[r.doc] || ""}" data-doc="${r.d}|${r.student_no}">제출 완료</button>`}</td></tr>`).join("") + "</tbody>";
   }catch(e){ say("docMsg", "불러오기 실패: " + e.message, "err"); }
 }
 $("docPrev").onclick = () => { DOC_M = shiftMonth(DOC_M, -1); loadDoc(); };
 $("docNext").onclick = () => { DOC_M = shiftMonth(DOC_M, 1); loadDoc(); };
+// 하루치 증빙서류 제출 완료 / 취소 (비고의 미제출 문구를 지우고 원래 비고 보관 → 취소 시 복원)
+async function docDayNote(c, d, n){
+  const [mr, nr] = await Promise.all([sb.from("day_manual").select("*").match({class_id: c, d, student_no: n}), sb.from("neis_day").select("*").match({class_id: c, d, student_no: n})]);
+  const man = (must(mr) || [])[0], nd = (must(nr) || [])[0];
+  return {kind: man ? man.kind : nd ? nd.kind : null, note: (man ? man.note : nd ? nd.note : "") || ""};
+}
+async function setDayNote(c, d, n, kind, before, next, memo){
+  if(next === before) return;
+  must(await sb.from("day_manual").upsert({class_id: c, d, student_no: n, kind, note: next, by_email: ME_EMAIL, at: new Date().toISOString()}));
+  must(await sb.from("mark_log").insert([{class_id: c, d, student_no: n, period: null, slot: null, action: "hr_note", teacher: "담임", before, after: next, by_email: ME_EMAIL, memo}]));
+}
+const stripMiss = note => note.replace(/\s*(출결신고서\s*|신고서\s*|응시확인증\s*|보고서\s*)?미제출/g, "").replace(/\s+/g, " ").trim();
+async function docSubmitDay(c, d, n, doc){
+  const {kind, note} = await docDayNote(c, d, n);
+  must(await sb.from("doc_submit").upsert({class_id: c, d, student_no: n, doc: doc || null, prev_note: note, by_email: ME_EMAIL, at: new Date().toISOString()}));
+  await setDayNote(c, d, n, kind, note, stripMiss(note), "제출 완료");
+}
+async function docUndoDay(c, d, n){
+  const {kind, note} = await docDayNote(c, d, n);
+  const ds = (must(await sb.from("doc_submit").select("*").match({class_id: c, d, student_no: n})) || [])[0];
+  if(ds && ds.prev_note && !/미제출/.test(note)) await setDayNote(c, d, n, kind, note, ds.prev_note, "제출 완료 취소");
+  must(await sb.from("doc_submit").delete().match({class_id: c, d, student_no: n}));
+}
 $("docTable").onclick = async e => {
-  const b = e.target.closest("[data-doc],[data-undoc]"); if(!b) return;
-  const [d, no] = (b.dataset.doc || b.dataset.undoc).split("|");
+  const b = e.target.closest("[data-doc],[data-undoc],[data-tripdoc],[data-tripundo]"); if(!b) return;
   b.disabled = true;
   try{
-    const c = CUR, n = +no;
-    const [mr, nr] = await Promise.all([sb.from("day_manual").select("*").match({class_id: c, d, student_no: n}), sb.from("neis_day").select("*").match({class_id: c, d, student_no: n})]);
-    const man = (must(mr) || [])[0], nd = (must(nr) || [])[0];
-    const kind = man ? man.kind : nd ? nd.kind : null, note = (man ? man.note : nd ? nd.note : "") || "";
-    const setNote = async (next, memo) => {
-      if(next === note) return;
-      must(await sb.from("day_manual").upsert({class_id: c, d, student_no: n, kind, note: next, by_email: ME_EMAIL, at: new Date().toISOString()}));
-      must(await sb.from("mark_log").insert([{class_id: c, d, student_no: n, period: null, slot: null, action: "hr_note", teacher: "담임", before: note, after: next, by_email: ME_EMAIL, memo}]));
-    };
-    if(b.dataset.doc){
-      // 제출 완료: 비고에서 "미제출" 문구를 지우고 원래 비고는 보관
-      const row = DOC_ALL.find(r => r.d === d && r.student_no === n) || {};
-      const cleaned = note.replace(/\s*(출결신고서\s*|신고서\s*|응시확인증\s*|보고서\s*)?미제출/g, "").replace(/\s+/g, " ").trim();
-      must(await sb.from("doc_submit").upsert({class_id: c, d, student_no: n, doc: row.doc || null, prev_note: note, by_email: ME_EMAIL, at: new Date().toISOString()}));
-      await setNote(cleaned, "제출 완료");
+    if(b.dataset.tripdoc || b.dataset.tripundo){
+      const id = +(b.dataset.tripdoc || b.dataset.tripundo);
+      if(b.dataset.tripundo && !confirm("이 회차의 보고서 제출 완료를 취소할까요? 비고에 미제출 문구가 다시 붙습니다.")){ b.disabled = false; return; }
+      await (b.dataset.tripdoc ? tripReportSubmit(id) : tripReportUndo(id));
     }else{
-      if(!confirm("제출 완료를 취소하고 다시 미제출로 돌릴까요? 비고에 미제출 문구가 다시 붙습니다.")){ b.disabled = false; return; }
-      const ds = (must(await sb.from("doc_submit").select("*").match({class_id: c, d, student_no: n})) || [])[0];
-      if(ds && ds.prev_note && !/미제출/.test(note)) await setNote(ds.prev_note, "제출 완료 취소");
-      must(await sb.from("doc_submit").delete().match({class_id: c, d, student_no: n}));
+      const [d, no] = (b.dataset.doc || b.dataset.undoc).split("|"), n = +no;
+      if(b.dataset.doc){ const row = DOC_ALL.find(r => r.d === d && r.student_no === n) || {}; await docSubmitDay(CUR, d, n, row.doc); }
+      else { if(!confirm("제출 완료를 취소하고 다시 미제출로 돌릴까요? 비고에 미제출 문구가 다시 붙습니다.")){ b.disabled = false; return; } await docUndoDay(CUR, d, n); }
     }
     say("docMsg", "", "mute");
   }catch(err){ say("docMsg", "저장 실패: " + err.message, "err"); }
@@ -1992,5 +2076,6 @@ $("addSuper").onclick = async () => {
 
 boot();
 </script>
+<script src="trip.js?v=1"></script>
 </body>
 </html>
