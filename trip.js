@@ -468,6 +468,39 @@
     };
   }
 
+  /* ---------- 엑셀로 내려받기 (이전 기록 붙여넣기와 같은 형식) ---------- */
+  let XS = null;
+  function styledXlsx(){
+    if(!XS) XS = new Promise((res, rej) => { const el = document.createElement("script");
+      el.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+      el.onload = () => res(window.XLSX); el.onerror = () => { XS = null; rej(new Error("엑셀 도구를 불러오지 못했습니다.")); }; document.head.appendChild(el); });
+    return XS;
+  }
+  const longDate = d => { const x = new Date(d + "T00:00:00"); return `${x.getFullYear()}년 ${x.getMonth() + 1}월 ${x.getDate()}일 ${"일월화수목금토"[x.getDay()]}요일`; };
+  $("tpExpBtn").onclick = async () => {
+    if(!TRIPS.length){ alert(`${AY}학년도 체험학습 기록이 없습니다.`); return; }
+    let X; try{ X = await styledXlsx(); }catch(e){ alert(e.message); return; }
+    const m = curClass().label.match(/(\d+)\D+(\d+)/) || [];
+    const hak = no => `${+m[1]}${String(+m[2]).padStart(2, "0")}${String(no).padStart(2, "0")}`;
+    const list = TRIPS.slice().sort((a, b) => (a.start_d || "9999").localeCompare(b.start_d || "9999") || a.student_no - b.student_no);
+    const head = ["학번", "이름", "시작일", "종료일", "사용일수", "보고서제출여부"];
+    const aoa = [head].concat(list.map(t => [Number(hak(t.student_no)), nameOf(t.student_no), t.start_d ? longDate(t.start_d) : "", t.end_d ? longDate(t.end_d) : "",
+      Number(t.days), (t.source === "app" || t.report_track) ? (t.report_at ? "O" : "X") : ""]));
+    const ws = X.utils.aoa_to_sheet(aoa);
+    const border = {top: {style: "thin", color: {rgb: "D4D4D4"}}, bottom: {style: "thin", color: {rgb: "D4D4D4"}}, left: {style: "thin", color: {rgb: "D4D4D4"}}, right: {style: "thin", color: {rgb: "D4D4D4"}}};
+    for(let r = 0; r < aoa.length; r++) for(let c = 0; c < head.length; c++){
+      const ref = X.utils.encode_cell({r, c}); if(!ws[ref]) ws[ref] = {t: "s", v: ""};
+      ws[ref].s = {font: {name: "맑은 고딕", sz: 11, bold: r === 0}, border,
+        fill: r === 0 ? {fgColor: {rgb: "FFC000"}} : r % 2 ? {fgColor: {rgb: "FFF2CC"}} : undefined,
+        alignment: {horizontal: r === 0 ? "center" : c === 1 ? "left" : c === 5 ? "center" : "right", vertical: "center"}};
+    }
+    ws["!cols"] = [{wch: 8}, {wch: 9}, {wch: 24}, {wch: 24}, {wch: 9}, {wch: 14}];
+    ws["!autofilter"] = {ref: X.utils.encode_range({s: {r: 0, c: 0}, e: {r: aoa.length - 1, c: head.length - 1}})};
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "체험학습");
+    X.writeFile(wb, `${AY}학년도_${curClass().label}반_교외체험학습.xlsx`);
+    say("tpMsg", `${list.length}건을 엑셀로 내려받았습니다.`, "ok");
+  };
+
   $("tpAddBtn").onclick = () => openTrip();
   $("bTrip").onclick = () => openTrip({d: (typeof BOARD !== "undefined" && BOARD && BOARD.d) || kstToday()});
 })();
