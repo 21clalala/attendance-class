@@ -68,7 +68,7 @@
         const form = t.source === "import" ? "" : t.half ? `일부 교시 · ${esc((t.slots || []).map(x => /^\d+$/.test(x) ? x + "교시" : x).join("·"))}<br><span class="mute" style="font-size:12px">${esc(t.kind || "")}${Number(t.days) === 0.5 ? " · 반일" : ""}</span>` : "하루 종일";
         const rep = !tracked(t) ? `<span class="pill">이전 기록</span>`
           : t.report_at ? `<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">✓ 제출함 ${md(new Date(t.report_at).toISOString().slice(0, 10))}</span> <button class="lnkb" data-tpundo="${t.id}">취소</button>`
-          : `<button class="btn sm dk3" data-tpdoc="${t.id}">제출 완료</button> <span class="mute" style="font-size:12px">${t.end_d >= today ? "진행 중" : "미제출"}</span>`;
+          : `<button class="btn sm dk3" data-tpdoc="${t.id}">제출처리</button> <span class="mute" style="font-size:12px">${t.end_d >= today ? "진행 중" : "미제출"}</span>`;
         const src = t.source === "import" && tracked(t) ? `<br><span class="mute" style="font-size:11px">이전 기록</span>` : "";
         return `<tr style="${!tracked(t) ? "color:var(--mute)" : ""}"><td class="l"><b>${t.student_no}</b> ${esc(nameOf(t.student_no))}</td><td class="l">${per}${t.memo ? `<br><span class="mute" style="font-size:12px">${esc(t.memo)}</span>` : ""}</td>
           <td class="l">${form}</td><td>${fmtDays(t.days)}</td><td class="l">${rep}${src}</td>
