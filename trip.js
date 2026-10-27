@@ -51,12 +51,13 @@
         const left = LIMIT - s.used, pct = Math.min(100, s.used / LIMIT * 100), warn = left <= 2;
         return `<tr><td>${s.no}</td><td class="l"><button class="lnkb" data-tpprev="${s.no}" title="이전 사용 일수 직접 입력">${esc(s.name)}</button></td>
           <td class="l"><div style="display:flex;gap:8px;align-items:center"><div style="height:8px;width:110px;border-radius:99px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:${pct}%;background:${warn ? "var(--dk3)" : "var(--ok)"}"></i></div><b>${fmtDays(s.used)}</b></div>
-          ${s.prev || s.half ? `<div class="mute" style="font-size:11px">${[s.prev ? `이전 기록 ${fmtDays(s.prev)} + 앱 ${fmtDays(s.used - s.prev)}` : "", s.half ? "반일 포함" : ""].filter(Boolean).join(" · ")}</div>` : ""}</td>
+          ${s.prev || s.half ? `<div class="mute" style="font-size:11px">${[s.prev ? (s.used - s.prev > 0 ? `이전 기록 ${fmtDays(s.prev)} + 앱 ${fmtDays(s.used - s.prev)}` : "이전 기록") : "", s.half ? "반일 포함" : ""].filter(Boolean).join(" · ")}</div>` : ""}</td>
           <td>${left < 0 ? `<span class="pill dk3">${fmtDays(-left)}일 초과</span>` : warn ? `<span class="pill dk3">${fmtDays(left)}일 남음</span>` : fmtDays(left)}</td></tr>`;
       }).join("") + "</tbody>";
     // 회차 목록
     const today = kstToday();
-    const due = t => t.source === "app" && !t.report_at;
+    const tracked = t => t.source === "app" || t.report_track;
+    const due = t => tracked(t) && !t.report_at;
     document.querySelectorAll("[data-tpf]").forEach(b => { const on = b.dataset.tpf === FILTER; b.classList.toggle("on", on);
       b.textContent = b.dataset.tpf === "all" ? `전체 ${TRIPS.length}` : `보고서 미제출 ${TRIPS.filter(due).length}`; });
     const rows = TRIPS.filter(t => FILTER === "all" || due(t));
@@ -65,11 +66,12 @@
       rows.map(t => {
         const per = !t.start_d ? `<span class="mute">날짜 없음 (일수만)</span>` : t.start_d === t.end_d ? mdw(t.start_d) : `${mdw(t.start_d)} ~ ${mdw(t.end_d)}`;
         const form = t.source === "import" ? "" : t.half ? `일부 교시 · ${esc((t.slots || []).map(x => /^\d+$/.test(x) ? x + "교시" : x).join("·"))}<br><span class="mute" style="font-size:12px">${esc(t.kind || "")}${Number(t.days) === 0.5 ? " · 반일" : ""}</span>` : "하루 종일";
-        const rep = t.source === "import" ? `<span class="pill">이전 기록</span>`
+        const rep = !tracked(t) ? `<span class="pill">이전 기록</span>`
           : t.report_at ? `<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">✓ 제출함 ${md(new Date(t.report_at).toISOString().slice(0, 10))}</span> <button class="lnkb" data-tpundo="${t.id}">취소</button>`
           : `<button class="btn sm dk3" data-tpdoc="${t.id}">제출 완료</button> <span class="mute" style="font-size:12px">${t.end_d >= today ? "진행 중" : "미제출"}</span>`;
-        return `<tr style="${t.source === "import" ? "color:var(--mute)" : ""}"><td class="l"><b>${t.student_no}</b> ${esc(nameOf(t.student_no))}</td><td class="l">${per}${t.memo ? `<br><span class="mute" style="font-size:12px">${esc(t.memo)}</span>` : ""}</td>
-          <td class="l">${form}</td><td>${fmtDays(t.days)}</td><td class="l">${rep}</td>
+        const src = t.source === "import" && tracked(t) ? `<br><span class="mute" style="font-size:11px">이전 기록</span>` : "";
+        return `<tr style="${!tracked(t) ? "color:var(--mute)" : ""}"><td class="l"><b>${t.student_no}</b> ${esc(nameOf(t.student_no))}</td><td class="l">${per}${t.memo ? `<br><span class="mute" style="font-size:12px">${esc(t.memo)}</span>` : ""}</td>
+          <td class="l">${form}</td><td>${fmtDays(t.days)}</td><td class="l">${rep}${src}</td>
           <td style="white-space:nowrap">${t.source === "app" ? `<button class="lnkb" data-tpedit="${t.id}">수정</button> ` : ""}<button class="lnkb" data-tpdel="${t.id}">삭제</button></td></tr>`;
       }).join("") + "</tbody>";
   }
@@ -263,8 +265,11 @@
 
   /* ---------- 이전 기록 붙여넣기 ---------- */
   const IMP = {rows: [], head: [], map: {}, out: []};
-  const GUESS = {no: /학번|번호/, name: /이름|성명/, from: /시작/, to: /종료|끝/, range: /기간/, days: /일수|사용/};
-  const FIELD = {no: "학번·번호", name: "이름", from: "시작일", to: "종료일", range: "기간(시작~종료 한 칸)", days: "일수"};
+  const GUESS = {no: /학번|번호/, name: /이름|성명/, from: /시작/, to: /종료|끝/, range: /기간/, days: /일수|사용/, report: /보고서|제출/};
+  const FIELD = {no: "학번·번호", name: "이름", from: "시작일", to: "종료일", range: "기간(시작~종료 한 칸)", days: "일수", report: "보고서 제출 여부(O/X)"};
+  const yesNo = v => { v = String(v || "").replace(/\s/g, ""); if(!v) return null;
+    if(/^(O|o|○|◯|●|Y|y|예|네|제출|완료|제출함|제출완료|ㅇ)$/.test(v)) return true;
+    if(/^(X|x|×|✕|N|n|아니오|미제출|ㄴ|-)$/.test(v)) return false; return null; };
   $("tpImpBtn").onclick = () => {
     const box = $("tpImp");
     if(!box.classList.contains("hidden")){ box.classList.add("hidden"); return; }
@@ -324,6 +329,7 @@
       // 날짜
       if(M.range >= 0){ const [a, b] = cell(r, "range").split(/[~∼\-–]/); o.from = parseDate(a, AY); o.to = parseDate(b || a, AY); }
       else { o.from = parseDate(cell(r, "from"), AY); o.to = parseDate(cell(r, "to") || cell(r, "from"), AY); }
+      o.report = M.report >= 0 ? yesNo(cell(r, "report")) : null;
       const dv = cell(r, "days").match(/\d+(\.\d+)?/);
       o.days = dv ? +dv[0] : null;
       if(o.ok && !o.from && o.days === null){ o.ok = false; o.msg = "날짜·일수를 읽지 못함"; }
@@ -354,9 +360,9 @@
   function drawPreview(){
     const L = IMP.out, take = L.filter(o => o.ok && (o.tone !== "overlap" || o.choice === "take"));
     $("impPrev").innerHTML = `<b style="font-size:14px">미리보기</b> <span class="mute" style="font-size:13px">· ${L.length}줄 중 가져올 ${take.length}줄 · 빨간 줄과 "이미 있음"은 가져오지 않습니다</span>
-      <div class="tbox" style="margin-top:6px;max-height:360px;overflow:auto"><table><thead><tr><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">기간</th><th>일수</th><th style="text-align:left">확인</th></tr></thead><tbody>` +
+      <div class="tbox" style="margin-top:6px;max-height:360px;overflow:auto"><table><thead><tr><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">기간</th><th>일수</th><th>보고서</th><th style="text-align:left">확인</th></tr></thead><tbody>` +
       L.map((o, i) => `<tr style="${!o.ok && o.tone !== "same" ? "background:var(--red-soft)" : o.tone === "same" ? "color:var(--mute)" : ""}"><td>${o.no ?? "—"}</td><td class="l">${esc(o.name || o.raw.join(" "))}</td>
-        <td class="l">${o.from ? (o.from === o.to ? mdw(o.from) : `${mdw(o.from)} ~ ${mdw(o.to)}`) : '<span class="mute">날짜 없음</span>'}</td><td>${o.days ?? "—"}</td>
+        <td class="l">${o.from ? (o.from === o.to ? mdw(o.from) : `${mdw(o.from)} ~ ${mdw(o.to)}`) : '<span class="mute">날짜 없음</span>'}</td><td>${o.days ?? "—"}</td><td>${o.report === true ? "제출" : o.report === false ? '<span style="color:var(--dk3)">미제출</span>' : '<span class="mute">—</span>'}</td>
         <td class="l" style="font-size:13px">${!o.ok ? `<span class="${o.tone === "same" ? "mute" : "err"}">${esc(o.msg)}</span>` : o.tone === "overlap"
           ? `<span style="color:var(--dk2)">${esc(o.msg)}</span> <select data-impch="${i}"><option value="skip" ${o.choice === "skip" ? "selected" : ""}>건너뛰기</option><option value="take" ${o.choice === "take" ? "selected" : ""}>가져오기(겹친 ${o.overlap}일 빼고)</option></select>`
           : o.msg ? `<span style="color:var(--dk2)">${esc(o.msg)}</span>` : '<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">OK</span>'}</td></tr>`).join("") +
@@ -367,10 +373,15 @@
       $("impGo").disabled = true;
       try{
         const rows = take.map(o => ({class_id: CUR, student_no: o.no, ay: AY, start_d: o.from, end_d: o.to, half: false, days: Math.max(0, o.days - (o.choice === "take" ? o.overlap || 0 : 0)), source: "import",
-          memo: o.choice === "take" && o.overlap ? `이전 기록(겹친 ${o.overlap}일 뺌)` : "이전 기록", by_email: ME_EMAIL}));
-        must(await sb.from("trip").insert(rows));
+          memo: o.choice === "take" && o.overlap ? `이전 기록(겹친 ${o.overlap}일 뺌)` : "이전 기록", by_email: ME_EMAIL,
+          report_track: o.report !== null, report_at: o.report === true ? new Date().toISOString() : null}));
+        const ins = must(await sb.from("trip").insert(rows).select()) || [];
+        // 보고서 O: 그 기간 비고의 "보고서 미제출"도 정리
+        let fixed = 0;
+        for(const t of ins) if(t.report_track && t.report_at && t.start_d){ await tripReportSubmit(t.id); fixed++; }
         $("tpImp").classList.add("hidden");
-        say("tpMsg", `이전 기록 ${rows.length}줄을 가져왔습니다.`, "ok");
+        const due = rows.filter(r => r.report_track && !r.report_at).length;
+        say("tpMsg", `이전 기록 ${rows.length}줄을 가져왔습니다.` + (rows.some(r => r.report_track) ? ` (보고서 제출 ${fixed}건 · 미제출 ${due}건)` : ""), "ok");
       }catch(e){ say("impMsg", "가져오기 실패: " + e.message, "err"); $("impGo").disabled = false; return; }
       loadTrip();
     };
