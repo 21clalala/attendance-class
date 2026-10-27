@@ -505,7 +505,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
           <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
             <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서(증빙서류)] 메뉴에 월별·서류별(출결신고서/응시확인증/보고서)로 모입니다. 대학별고사는 응시확인증, 교외체험학습은 보고서로 자동 구분되고, 마감 창에서 직접 고를 수도 있습니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 신고서가 필요한 경우(질병, 출석인정 중 생리통·경조사·법정감염병)만 모이고, 미인정·기타·그 밖의 출석인정(대회 등)은 빠집니다.</li>
             <li><b>신고서 출력:</b> [출결신고서(증빙서류)] → [출결신고서 만들기]를 누르면 그 달 미제출 학생의 신고서를 한 파일(HWPX)로 만듭니다. 한 날짜만 필요하면 [오늘 출석부] → [신고서 출력]. 한글에서 열어 인쇄하세요. 사유 체크는 비고 괄호 안 내용으로 자동 체크되고, [고치기]로 바꿀 수 있습니다. 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</li>
-            <li>신고서를 받으면 [제출 완료]를 누르세요. 목록에서 사라집니다(잘못 눌렀으면 [제출 완료 보기]에서 취소).</li>
+            <li>서류를 받으면 [제출 완료]를 누르세요. 목록에서 사라지고, 그날 비고의 "미제출" 문구도 지워집니다(나이스 반영 때도 지워진 비고로 들어갑니다). 잘못 눌렀으면 [제출 완료 보기]에서 취소하면 비고가 원래대로 돌아옵니다.</li>
             <li>남은 미제출이 있으면 수업이 있는 날 아침 08:00에 휴대폰으로 알림이 옵니다.</li>
           </ul>
         </div>
@@ -1257,7 +1257,7 @@ async function doApplyUpload(useFile){
 let DOC_M = null;   // "YYYY-MM"
 let DOC_DONE = false; // 제출 완료 건 보기
 let DOC_SORT = store.get("attend-doc-sort") === "d" ? "d" : "no";   // 기본: 번호순
-let DOC_KIND = "전체";
+let DOC_KIND = "전체", DOC_ALL = [];
 const DK_CLS = {"출결신고서": "dk1", "응시확인증": "dk2", "보고서": "dk3"};
 document.querySelectorAll("[data-dkind]").forEach(b => b.onclick = () => { DOC_KIND = b.dataset.dkind; loadDoc(); });
 document.querySelectorAll("[data-dsort]").forEach(b => b.onclick = () => { DOC_SORT = b.dataset.dsort; store.set("attend-doc-sort", DOC_SORT); loadDoc(); });
@@ -1295,7 +1295,7 @@ async function loadDoc(){
   try{
     let rows = must(await sb.rpc("doc_list", {p_class: c, p_from: from, p_to: to}));
     if(c !== CUR || ym !== DOC_M) return;
-    const all = rows;
+    const all = rows; DOC_ALL = rows;
     document.querySelectorAll("[data-dkind]").forEach(b => {
       const k = b.dataset.dkind, n = all.filter(r => !r.submitted && (k === "전체" || r.doc === k)).length;
       b.textContent = k + (n ? ` ${n}` : ""); b.classList.toggle("on", k === DOC_KIND); b.setAttribute("aria-pressed", k === DOC_KIND);
@@ -1328,10 +1328,26 @@ $("docTable").onclick = async e => {
   const [d, no] = (b.dataset.doc || b.dataset.undoc).split("|");
   b.disabled = true;
   try{
-    if(b.dataset.doc) must(await sb.from("doc_submit").upsert({class_id: CUR, d, student_no: +no, by_email: ME_EMAIL, at: new Date().toISOString()}));
-    else {
-      if(!confirm("제출 완료를 취소하고 다시 미제출로 돌릴까요?")){ b.disabled = false; return; }
-      must(await sb.from("doc_submit").delete().match({class_id: CUR, d, student_no: +no}));
+    const c = CUR, n = +no;
+    const [mr, nr] = await Promise.all([sb.from("day_manual").select("*").match({class_id: c, d, student_no: n}), sb.from("neis_day").select("*").match({class_id: c, d, student_no: n})]);
+    const man = (must(mr) || [])[0], nd = (must(nr) || [])[0];
+    const kind = man ? man.kind : nd ? nd.kind : null, note = (man ? man.note : nd ? nd.note : "") || "";
+    const setNote = async (next, memo) => {
+      if(next === note) return;
+      must(await sb.from("day_manual").upsert({class_id: c, d, student_no: n, kind, note: next, by_email: ME_EMAIL, at: new Date().toISOString()}));
+      must(await sb.from("mark_log").insert([{class_id: c, d, student_no: n, period: null, slot: null, action: "hr_note", teacher: "담임", before: note, after: next, by_email: ME_EMAIL, memo}]));
+    };
+    if(b.dataset.doc){
+      // 제출 완료: 비고에서 "미제출" 문구를 지우고 원래 비고는 보관
+      const row = DOC_ALL.find(r => r.d === d && r.student_no === n) || {};
+      const cleaned = note.replace(/\s*(출결신고서\s*|신고서\s*|응시확인증\s*|보고서\s*)?미제출/g, "").replace(/\s+/g, " ").trim();
+      must(await sb.from("doc_submit").upsert({class_id: c, d, student_no: n, doc: row.doc || null, prev_note: note, by_email: ME_EMAIL, at: new Date().toISOString()}));
+      await setNote(cleaned, "제출 완료");
+    }else{
+      if(!confirm("제출 완료를 취소하고 다시 미제출로 돌릴까요? 비고에 미제출 문구가 다시 붙습니다.")){ b.disabled = false; return; }
+      const ds = (must(await sb.from("doc_submit").select("*").match({class_id: c, d, student_no: n})) || [])[0];
+      if(ds && ds.prev_note && !/미제출/.test(note)) await setNote(ds.prev_note, "제출 완료 취소");
+      must(await sb.from("doc_submit").delete().match({class_id: c, d, student_no: n}));
     }
     say("docMsg", "", "mute");
   }catch(err){ say("docMsg", "저장 실패: " + err.message, "err"); }
