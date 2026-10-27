@@ -473,7 +473,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
         <div class="card" id="h2"><h2>2. 매일 할 일 — [오늘 출석부]에서 직접 입력</h2>
           <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
             <li><b>교시 칸</b>을 누르면 "/"가 찍히고, 다시 누르면 지워집니다. 교과선생님이 찍은 "/"도 담임이 바꿀 수 있고 기록이 남습니다.</li>
-            <li><b>마감 칸</b>을 누르면 종류(결석·지각·조퇴·결과)와 구분(질병·미인정·기타·출석인정), 사유를 고르는 창이 뜹니다. <b>결석</b>을 적용하면 조회~종례가 모두 "/"로 채워지고, 지각·조퇴·결과는 해당 교시를 직접 눌러 "/"를 찍습니다.</li>
+            <li><b>마감 칸</b>을 누르면 종류(결석·지각·조퇴·결과)와 구분(질병·미인정·기타·출석인정), 사유를 고르는 창이 뜹니다. <b>결석</b>을 적용하면 조회~종례가 모두 "/"로 채워지고, 지각·조퇴·결과는 해당 교시를 직접 눌러 "/"를 찍습니다. <b>지각</b>은 마지막으로 없었던 교시를 누르면 조회부터 그 교시까지, <b>조퇴</b>는 처음 없었던 교시를 누르면 그 교시부터 종례까지 한 번에 채워집니다.</li>
             <li><b>비고 칸</b>을 누르면 바로 고칠 수 있습니다. Enter 저장, Esc 취소.</li>
             <li><b>조회 시간</b>(08:00~08:50)에는 교실 QR을 찍어 휴대폰으로도 입력할 수 있습니다. 담임 입력이라 알림은 가지 않습니다.</li>
             <li>날짜를 바꾸면 지난 날짜도 같은 방법으로 고칠 수 있습니다.</li>
@@ -1035,6 +1035,18 @@ async function editCell(no, slot){
   }
   try{
     const logs = await setCell(no, slot, target);
+    // 지각: 조회~누른 교시, 조퇴: 누른 교시~종례 까지 "/" 채우기 (이미 "/"거나 교과선생님 입력 칸은 그대로)
+    if(target === "absent"){
+      const man = BOARD.M.get(no), nd = BOARD.D.get(no) || {};
+      const t = parseKind(man ? man.kind : nd.kind).t;
+      const ord = sl => sl === "조회" ? 0 : sl === "종례" ? 99 : +sl;
+      const range = (BOARD.slots || []).filter(sl => t === "지각" ? ord(sl) < ord(slot) : t === "조퇴" ? ord(sl) > ord(slot) : false);
+      for(const sl of range){
+        const e2 = BOARD.eff(no, sl);
+        if(e2.state === "absent" || e2.src === "t") continue;
+        logs.push(...await setCell(no, sl, "absent"));
+      }
+    }
     if(logs.length) must(await sb.from("mark_log").insert(logs));
   }catch(err){ alert("저장 실패: " + err.message); }
   loadBoard();
@@ -1057,7 +1069,7 @@ function kdSync(){
     const off = x.dataset.miss === "출결신고서" ? (!c || c === "미인정" || c === "기타") : c !== "출석인정";
     x.disabled = off; if(off) x.checked = false; x.closest("label").classList.toggle("off", off);
   });
-  $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
+  $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t === "지각" ? "적용한 뒤 출석부에서 마지막으로 없었던 교시를 누르면 조회부터 그 교시까지 \"/\"가 채워집니다." : t === "조퇴" ? "적용한 뒤 출석부에서 처음 없었던 교시를 누르면 그 교시부터 종례까지 \"/\"가 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
 }
 document.querySelectorAll('input[name="kdT"], input[name="kdC"]').forEach(r => r.onchange = kdSync);
 // 응시확인증·보고서를 고르면 사유 칸을 정해진 문구로 채움 (직접 고칠 수 있음)
