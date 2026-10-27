@@ -49,6 +49,7 @@ tr.tap{cursor:pointer}
 tr.tap:active td{filter:brightness(.96)}
 tr.ex td{color:var(--mute);background:var(--lock)}
 tr.ex td.nm::after{content:" 제외";font-size:11px;font-weight:400}
+.kd{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12px;font-weight:700;vertical-align:1px;white-space:nowrap}
 .tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700;vertical-align:1px}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
   padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:5}
@@ -116,7 +117,7 @@ const DEMO_STATE = (() => {
   return {date: today, label: "체험", period: 3, teacher: "홍길동", next: null,
     schedule: [{period:3, start:"10:50", end:"11:40", teacher:"홍길동"}],
     students: names.map((name, i) => ({no: i + 1, name, excluded: false, tag: i === 7 ? "자습반" : null})),
-    neis: [{no: 4, slot: "3"}], marks: [], teachers: ["홍길동"]};
+    neis: [{no: 4, slot: "3"}], days: [{no: 4, kind: "질병결석"}], marks: [], teachers: ["홍길동"]};
 })();
 async function rpc(name, a){
   if(!DEMO) return sb.rpc(name, a);
@@ -274,6 +275,8 @@ function render(){
     const nmEl = tr.querySelector(".nm");
     nmEl.textContent = S.students[i].name;
     if(S.students[i].tag){ const t = document.createElement("span"); t.className = "tag"; t.textContent = S.students[i].tag; nmEl.appendChild(t); }
+    const dk = (S.days || []).find(x => x.no === S.students[i].no);   // 담임이 입력한 마감 (종류만)
+    if(dk && dk.kind){ const t = document.createElement("span"); t.className = "kd"; t.textContent = dk.kind; nmEl.appendChild(t); }
     if(tr.classList.contains("tap")) tr.onclick = () => toggle(+tr.dataset.no);
   });
   updateBar();
