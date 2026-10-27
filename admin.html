@@ -169,7 +169,8 @@ dialog.fm .fmbody{padding:14px 18px 18px}
 #fmTable{font-size:13px;min-width:760px}
 .lnkb{background:none;border:0;padding:0;color:var(--ok);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline}
 .seg{display:inline-flex}.seg .btn{border-radius:0}.seg .btn:first-child{border-radius:8px 0 0 8px}.seg .btn:last-child{border-radius:0 8px 8px 0}.seg .btn + .btn{margin-left:-1px}
-.seg .btn.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.seg button.btn.on,.seg button.btn.on:hover{background:#0b4f4a;color:#fff;border-color:#0b4f4a}
+@media (prefers-color-scheme: dark){.seg button.btn.on,.seg button.btn.on:hover{background:#7fe0d4;color:#0d1b1a;border-color:#7fe0d4}}
 /* 증빙서류 종류별 색(파스텔): 출결신고서=하늘, 응시확인증=레몬, 보고서=코랄 */
 :root{--dk1:#164a7a;--dk1s:#d6ecff;--dk1l:#b5dbff;--dk2:#6b5300;--dk2s:#fff3bf;--dk2l:#ffe680;--dk3:#8c2a1a;--dk3s:#ffd9d2;--dk3l:#ffb8aa}
 @media (prefers-color-scheme: dark){:root{--dk1:#b9dcff;--dk1s:#1f3550;--dk1l:#2e4d72;--dk2:#ffe58a;--dk2s:#3d3412;--dk2l:#5c4e1a;--dk3:#ffc2b6;--dk3s:#4a2620;--dk3l:#6b382e}}
@@ -179,7 +180,9 @@ dialog.fm .fmbody{padding:14px 18px 18px}
 .btn.dk3:not(.ghost){background:var(--dk3s);color:var(--dk3);border:1px solid var(--dk3l)}
 .btn.dk1:not(.ghost):hover{background:var(--dk1l)}.btn.dk2:not(.ghost):hover{background:var(--dk2l)}.btn.dk3:not(.ghost):hover{background:var(--dk3l)}
 .seg .btn.ghost.dk1{color:var(--dk1)}.seg .btn.ghost.dk2{color:var(--dk2)}.seg .btn.ghost.dk3{color:var(--dk3)}
-.seg .btn.dk1.on{background:var(--dk1s);border-color:var(--dk1l);color:var(--dk1)}.seg .btn.dk2.on{background:var(--dk2s);border-color:var(--dk2l);color:var(--dk2)}.seg .btn.dk3.on{background:var(--dk3s);border-color:var(--dk3l);color:var(--dk3)}
+.seg button.btn.dk1.on,.seg button.btn.dk1.on:hover{background:var(--dk1s);border-color:var(--dk1);color:var(--dk1);box-shadow:inset 0 0 0 1px var(--dk1)}
+.seg button.btn.dk2.on,.seg button.btn.dk2.on:hover{background:var(--dk2s);border-color:var(--dk2);color:var(--dk2);box-shadow:inset 0 0 0 1px var(--dk2)}
+.seg button.btn.dk3.on,.seg button.btn.dk3.on:hover{background:var(--dk3s);border-color:var(--dk3);color:var(--dk3);box-shadow:inset 0 0 0 1px var(--dk3)}
 #fmTable th,#fmTable td{padding:7px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line2)}
 #fmTable tr.off td{color:var(--mute)}
 #fmTable tr.flag td{background:#fdf1dc}
@@ -389,7 +392,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       </div>
       <div class="card" style="flex:999 1 620px;min-width:0;padding:0;overflow:hidden">
         <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line2);flex-wrap:wrap;gap:8px"><b>회차 목록</b>
-          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="seg" role="group" aria-label="정렬"><button class="btn ghost sm" data-tps="no">학번순</button><button class="btn ghost sm" data-tps="end">날짜순</button></span>
+          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="seg" role="group" aria-label="정렬"><button class="btn ghost sm" data-tps="no">학번순</button><button class="btn ghost sm" data-tps="new">최신순</button><button class="btn ghost sm" data-tps="old">오래된순</button></span>
           <span class="seg" role="group" aria-label="보기"><button class="btn ghost sm" data-tpf="all">전체</button><button class="btn ghost sm dk3" data-tpf="due">보고서 미제출</button></span></div></div>
         <div class="tbox" style="border:0;border-radius:0"><table id="tpList"></table></div>
       </div>
@@ -2078,6 +2081,6 @@ $("addSuper").onclick = async () => {
 
 boot();
 </script>
-<script src="trip.js?v=8"></script>
+<script src="trip.js?v=9"></script>
 </body>
 </html>

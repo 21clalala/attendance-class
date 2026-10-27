@@ -19,7 +19,7 @@
   const mdw = d => `${md(d)}(${"일월화수목금토"[new Date(d + "T00:00:00").getDay()]})`;
   const fmtDays = n => (Math.round(n * 10) / 10).toString();
   let AY = null, TRIPS = [], STU = [], FILTER = "all", SHOW_ALL = false;
-  let SORT = (() => { try{ return localStorage.getItem("attend-trip-sort") === "end" ? "end" : "no"; }catch(e){ return "no"; } })();   // 기본: 학번순
+  let SORT = (() => { try{ const v = localStorage.getItem("attend-trip-sort"); return ["new", "old"].includes(v) ? v : "no"; }catch(e){ return "no"; } })();   // 기본: 학번순
 
   /* ---------- 불러오기 ---------- */
   async function loadTrip(){
@@ -62,8 +62,10 @@
     document.querySelectorAll("[data-tpf]").forEach(b => { const on = b.dataset.tpf === FILTER; b.classList.toggle("on", on);
       b.textContent = b.dataset.tpf === "all" ? `전체 ${TRIPS.length}` : `보고서 미제출 ${TRIPS.filter(due).length}`; });
     const byEnd = (a, b) => (a.end_d || "9999").localeCompare(b.end_d || "9999");
-    const rows = TRIPS.filter(t => FILTER === "all" || due(t)).sort(SORT === "end"
-      ? (a, b) => byEnd(a, b) || a.student_no - b.student_no
+    const newer = (a, b) => (b.end_d || "0000").localeCompare(a.end_d || "0000");   // 날짜 없는 기록은 맨 뒤
+    const rows = TRIPS.filter(t => FILTER === "all" || due(t)).sort(
+        SORT === "new" ? (a, b) => newer(a, b) || a.student_no - b.student_no
+      : SORT === "old" ? (a, b) => byEnd(a, b) || a.student_no - b.student_no
       : (a, b) => a.student_no - b.student_no || byEnd(a, b));
     document.querySelectorAll("[data-tps]").forEach(b => { const on = b.dataset.tps === SORT; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     $("tpList").innerHTML = !rows.length ? `<tbody><tr><td class="mute" style="padding:16px">${FILTER === "all" ? "등록된 회차가 없습니다." : "보고서를 낼 회차가 없습니다."}</td></tr></tbody>` :
