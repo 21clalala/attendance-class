@@ -389,7 +389,8 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       </div>
       <div class="card" style="flex:999 1 620px;min-width:0;padding:0;overflow:hidden">
         <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line2);flex-wrap:wrap;gap:8px"><b>회차 목록</b>
-          <span class="seg" role="group" aria-label="보기"><button class="btn ghost sm" data-tpf="all">전체</button><button class="btn ghost sm dk3" data-tpf="due">보고서 미제출</button></span></div>
+          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="seg" role="group" aria-label="정렬"><button class="btn ghost sm" data-tps="no">학번순</button><button class="btn ghost sm" data-tps="end">날짜순</button></span>
+          <span class="seg" role="group" aria-label="보기"><button class="btn ghost sm" data-tpf="all">전체</button><button class="btn ghost sm dk3" data-tpf="due">보고서 미제출</button></span></div></div>
         <div class="tbox" style="border:0;border-radius:0"><table id="tpList"></table></div>
       </div>
     </div>
@@ -2077,6 +2078,6 @@ $("addSuper").onclick = async () => {
 
 boot();
 </script>
-<script src="trip.js?v=7"></script>
+<script src="trip.js?v=8"></script>
 </body>
 </html>

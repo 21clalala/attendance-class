@@ -19,6 +19,7 @@
   const mdw = d => `${md(d)}(${"일월화수목금토"[new Date(d + "T00:00:00").getDay()]})`;
   const fmtDays = n => (Math.round(n * 10) / 10).toString();
   let AY = null, TRIPS = [], STU = [], FILTER = "all", SHOW_ALL = false;
+  let SORT = (() => { try{ return localStorage.getItem("attend-trip-sort") === "end" ? "end" : "no"; }catch(e){ return "no"; } })();   // 기본: 학번순
 
   /* ---------- 불러오기 ---------- */
   async function loadTrip(){
@@ -60,7 +61,11 @@
     const due = t => tracked(t) && !t.report_at;
     document.querySelectorAll("[data-tpf]").forEach(b => { const on = b.dataset.tpf === FILTER; b.classList.toggle("on", on);
       b.textContent = b.dataset.tpf === "all" ? `전체 ${TRIPS.length}` : `보고서 미제출 ${TRIPS.filter(due).length}`; });
-    const rows = TRIPS.filter(t => FILTER === "all" || due(t));
+    const byEnd = (a, b) => (a.end_d || "9999").localeCompare(b.end_d || "9999");
+    const rows = TRIPS.filter(t => FILTER === "all" || due(t)).sort(SORT === "end"
+      ? (a, b) => byEnd(a, b) || a.student_no - b.student_no
+      : (a, b) => a.student_no - b.student_no || byEnd(a, b));
+    document.querySelectorAll("[data-tps]").forEach(b => { const on = b.dataset.tps === SORT; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
     $("tpList").innerHTML = !rows.length ? `<tbody><tr><td class="mute" style="padding:16px">${FILTER === "all" ? "등록된 회차가 없습니다." : "보고서를 낼 회차가 없습니다."}</td></tr></tbody>` :
       `<thead><tr><th style="text-align:left">학생</th><th style="text-align:left">기간</th><th style="text-align:left">형태</th><th>일수</th><th style="text-align:left">보고서</th><th></th></tr></thead><tbody>` +
       rows.map(t => {
@@ -80,6 +85,7 @@
   $("tpNext").onclick = () => { AY++; loadTrip(); };
   $("tpAllBtn").onclick = () => { SHOW_ALL = !SHOW_ALL; render(); };
   document.querySelectorAll("[data-tpf]").forEach(b => b.onclick = () => { FILTER = b.dataset.tpf; render(); });
+  document.querySelectorAll("[data-tps]").forEach(b => b.onclick = () => { SORT = b.dataset.tps; try{ localStorage.setItem("attend-trip-sort", SORT); }catch(e){} render(); });
 
   /* ---------- 반일 판단 ---------- */
   // slots: 빠진 칸, periods: 그날 수업 교시(숫자 배열)
