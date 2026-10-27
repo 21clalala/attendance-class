@@ -557,7 +557,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
 
         <div class="card" id="h4"><h2>4. 출결신고서·증빙서류</h2>
           <ul class="mute" style="font-size:14px;margin:0;padding-left:20px">
-            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서(증빙서류)] 메뉴에 월별·서류별(출결신고서/응시확인증/보고서)로 모입니다. 대학별고사는 응시확인증, 교외체험학습은 보고서로 자동 구분되고, 마감 창에서 직접 고를 수도 있습니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 신고서가 필요한 경우(질병, 출석인정 중 생리통·경조사·법정감염병)만 모이고, 미인정·기타·그 밖의 출석인정(대회 등)은 빠집니다.</li>
+            <li>비고에 <b>"미제출"</b>이 있으면 [출결신고서(증빙서류)] 메뉴에 월별·서류별(출결신고서/응시확인증/보고서)로 모입니다. 대학별고사는 응시확인증, 교외체험학습은 보고서로 자동 구분되고, 마감 창에서 직접 고를 수도 있습니다. 마감 창의 "출결신고서 미제출"을 체크해도 되고, 비고에 직접 써도 됩니다. 신고서가 필요한 경우(질병, 출석인정 중 생리통·경조사·법정감염병)만 모이고, 미인정·기타·그 밖의 출석인정(대회 등)은 빠집니다. 다만 기타결석이라도 부모 간병처럼 신고서가 필요하면 마감 창에서 "출결신고서 미제출"을 체크하면 목록에 올라갑니다.</li>
             <li><b>신고서 출력:</b> [출결신고서(증빙서류)] → [출결신고서 만들기]를 누르면 그 달 미제출 학생의 신고서를 한 파일(HWPX)로 만듭니다. 한 날짜만 필요하면 [오늘 출석부] → [신고서 출력]. 한글에서 열어 인쇄하세요. 사유 체크는 비고 괄호 안 내용으로 자동 체크되고, [고치기]로 바꿀 수 있습니다. 생리통 출석인정은 학부모확인서가 뒤에 붙습니다.</li>
             <li>서류를 받으면 [제출처리]를 누르세요. 목록에서 사라지고, 그날 비고의 "미제출" 문구도 지워집니다(나이스 반영 때도 지워진 비고로 들어갑니다). 잘못 눌렀으면 [제출 완료 보기]에서 취소하면 비고가 원래대로 돌아옵니다.</li>
             <li>남은 미제출이 있으면 수업이 있는 날 아침 08:00에 휴대폰으로 알림이 옵니다.</li>
@@ -1135,9 +1135,9 @@ function kdSync(){
   const t = (document.querySelector('input[name="kdT"]:checked') || {}).value;
   document.querySelectorAll('#kdCat label').forEach(l => { l.classList.toggle("off", !t); l.querySelector("input").disabled = !t; });
   const c = (document.querySelector('input[name="kdC"]:checked') || {}).value;
-  // 출결신고서: 미인정·기타는 불필요 / 응시확인증·보고서: 출석인정일 때만
+  // 출결신고서: 미인정은 불필요 (기타는 부모 간병 등 필요한 경우가 있어 선택 가능) / 응시확인증·보고서: 출석인정일 때만
   document.querySelectorAll("[data-miss]").forEach(x => {
-    const off = x.dataset.miss === "출결신고서" ? (!c || c === "미인정" || c === "기타") : c !== "출석인정";
+    const off = x.dataset.miss === "출결신고서" ? (!c || c === "미인정") : c !== "출석인정";
     x.disabled = off; if(off) x.checked = false; x.closest("label").classList.toggle("off", off);
   });
   $("kdHint").textContent = t === "결석" ? "결석을 적용하면 조회~종례가 모두 \"/\"로 채워집니다." : t === "지각" ? "적용한 뒤 출석부에서 마지막으로 없었던 교시를 누르면 조회부터 그 교시까지 \"/\"가 채워집니다." : t === "조퇴" ? "적용한 뒤 출석부에서 처음 없었던 교시를 누르면 그 교시부터 종례까지 \"/\"가 채워집니다." : t ? "해당 교시 칸은 출석부에서 직접 눌러 \"/\"를 찍어 주세요." : "";
@@ -1177,7 +1177,7 @@ $("kdApply").onclick = async () => {
   const missSel = (document.querySelector("[data-miss]:checked:not(:disabled)") || {}).dataset?.miss;
   const reason = $("kdReason").value.trim() || (missSel && typeof MISS_REASON !== "undefined" ? MISS_REASON[missSel] || "" : "");
   const miss = (document.querySelector("[data-miss]:checked:not(:disabled)") || {}).dataset?.miss;
-  const note = `${kind}(${reason})` + (!miss ? "" : miss === "출결신고서" ? (c === "출석인정" ? " 출결신고서 미제출" : " 미제출") : ` ${miss} 미제출`);
+  const note = `${kind}(${reason})` + (!miss ? "" : miss === "출결신고서" ? (c === "출석인정" || c === "기타" ? " 출결신고서 미제출" : " 미제출") : ` ${miss} 미제출`);
   const no = KD.no, B = BOARD;
   try{
     must(await sb.from("day_manual").upsert({class_id:B.c, d:B.d, student_no:no, kind, note, by_email:ME_EMAIL, at:new Date().toISOString()}));
