@@ -79,7 +79,7 @@
         const src = t.source === "import" && tracked(t) ? `<br><span class="mute" style="font-size:11px">이전 기록</span>` : "";
         return `<tr style="${!tracked(t) ? "color:var(--mute)" : ""}"><td class="l"><b>${t.student_no}</b> ${esc(nameOf(t.student_no))}</td><td class="l">${per}${t.memo ? `<br><span class="mute" style="font-size:12px">${esc(t.memo)}</span>` : ""}</td>
           <td class="l">${form}</td><td>${fmtDays(t.days)}</td><td class="l">${rep}${src}</td>
-          <td style="white-space:nowrap">${t.source === "app" ? `<button class="lnkb" data-tpedit="${t.id}">수정</button> ` : ""}<button class="lnkb" data-tpdel="${t.id}">삭제</button></td></tr>`;
+          <td style="white-space:nowrap">${t.source === "app" ? `<button class="lnkb" data-tpedit="${t.id}">수정</button> ` : t.start_d ? `<button class="lnkb" data-tpsync="${t.id}">출석부 반영</button> ` : ""}<button class="lnkb" data-tpdel="${t.id}">삭제</button></td></tr>`;
       }).join("") + "</tbody>";
   }
 
@@ -180,7 +180,7 @@
     must(await sb.from("homeroom_marks").delete().eq("class_id", t.class_id).eq("student_no", t.student_no).eq("by_email", tag).gte("d", t.start_d).lte("d", t.end_d));
     // 마감·비고: 이 회차가 넣은 것(보고서 제출로 비고가 바뀐 것 포함)
     const dm = must(await sb.from("day_manual").select("*").eq("class_id", t.class_id).eq("student_no", t.student_no).gte("d", t.start_d).lte("d", t.end_d));
-    for(const r of dm) if(r.by_email === tag || /교외체험학습/.test(r.note || "")) must(await sb.from("day_manual").delete().match({class_id: t.class_id, d: r.d, student_no: t.student_no}));
+    for(const r of dm) if(r.by_email === tag || (t.source === "app" && /교외체험학습/.test(r.note || ""))) must(await sb.from("day_manual").delete().match({class_id: t.class_id, d: r.d, student_no: t.student_no}));
     must(await sb.from("doc_submit").delete().eq("class_id", t.class_id).eq("student_no", t.student_no).gte("d", t.start_d).lte("d", t.end_d));
   }
   // 회차를 출석부에 넣기
@@ -240,16 +240,17 @@
   window.tripReportSubmit = tripReportSubmit; window.tripReportUndo = tripReportUndo;
 
   $("tpList").onclick = async e => {
-    const b = e.target.closest("[data-tpdoc],[data-tpundo],[data-tpedit],[data-tpdel]"); if(!b) return;
-    const id = +(b.dataset.tpdoc || b.dataset.tpundo || b.dataset.tpedit || b.dataset.tpdel);
+    const b = e.target.closest("[data-tpdoc],[data-tpundo],[data-tpedit],[data-tpdel],[data-tpsync]"); if(!b) return;
+    const id = +(b.dataset.tpdoc || b.dataset.tpundo || b.dataset.tpedit || b.dataset.tpdel || b.dataset.tpsync);
     const t = TRIPS.find(x => x.id === id); if(!t) return;
     try{
       if(b.dataset.tpedit){ openTrip({edit: t}); return; }
+      if(b.dataset.tpsync){ await syncToBoard([t]); return; }
       if(b.dataset.tpdoc){ b.disabled = true; await tripReportSubmit(id); say("tpMsg", `${t.student_no}번 ${nameOf(t.student_no)} 보고서 제출 완료. 비고의 "보고서 미제출"을 지웠습니다.`, "ok"); }
       if(b.dataset.tpundo){ if(!confirm("보고서 제출 완료를 취소할까요?")) return; await tripReportUndo(id); }
       if(b.dataset.tpdel){
-        if(!confirm(t.source === "import" ? "이 이전 기록을 지울까요?" : `${t.student_no}번 ${nameOf(t.student_no)} ${md(t.start_d)}~${md(t.end_d)} 회차를 지울까요?\n이 회차가 출석부에 넣은 "/"·마감·비고도 함께 지워집니다.`)) return;
-        if(t.source === "app") await removeTripWrites(t);
+        if(!confirm(t.source === "import" ? "이 이전 기록을 지울까요?\n이 기록으로 출석부에 넣은 내용이 있으면 함께 지워집니다." : `${t.student_no}번 ${nameOf(t.student_no)} ${md(t.start_d)}~${md(t.end_d)} 회차를 지울까요?\n이 회차가 출석부에 넣은 "/"·마감·비고도 함께 지워집니다.`)) return;
+        if(t.start_d) await removeTripWrites(t);
         must(await sb.from("trip").delete().eq("id", id));
       }
     }catch(err){ say("tpMsg", "저장 실패: " + err.message, "err"); }
@@ -447,7 +448,8 @@
         <td class="l" style="font-size:13px">${!o.ok ? `<span class="${o.tone === "same" ? "mute" : "err"}">${esc(o.msg)}</span>` : o.tone === "overlap"
           ? `<span style="color:var(--dk2)">${esc(o.msg)}</span> <select data-impch="${i}"><option value="skip" ${o.choice === "skip" ? "selected" : ""}>건너뛰기</option><option value="take" ${o.choice === "take" ? "selected" : ""}>가져오기(겹친 ${o.overlap}일 빼고)</option></select>`
           : o.msg ? `<span style="color:var(--dk2)">${esc(o.msg)}</span>` : '<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">OK</span>'}</td></tr>`).join("") +
-      `</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn" id="impGo" ${take.length ? "" : "disabled"}>${[take.filter(o => !o.update).length ? `${take.filter(o => !o.update).length}줄 가져오기` : "", take.filter(o => o.update).length ? `${take.filter(o => o.update).length}건 보고서 상태 갱신` : ""].filter(Boolean).join(" · ") || "가져올 줄 없음"}</button><button class="btn ghost" id="impCancel">닫기</button><span id="impMsg"></span></div>`;
+      `</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn" id="impGo" ${take.length ? "" : "disabled"}>${[take.filter(o => !o.update).length ? `${take.filter(o => !o.update).length}줄 가져오기` : "", take.filter(o => o.update).length ? `${take.filter(o => o.update).length}건 보고서 상태 갱신` : ""].filter(Boolean).join(" · ") || "가져올 줄 없음"}</button><button class="btn ghost" id="impCancel">닫기</button><span id="impMsg"></span></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:14px"><input type="checkbox" id="impAtt" style="margin-top:4px"> <span><b>앱 출석부에도 넣기</b> <span class="mute" style="font-size:13px">— 가져온 뒤 기간의 수업일을 확인해서, 빈 날은 채우고 이미 같은 날은 그대로 두며 <b>다른 날만</b> 보여 주고 고르게 합니다.</span></span></label>`;
     $("impPrev").querySelectorAll("[data-impch]").forEach(s => s.onchange = () => { L[+s.dataset.impch].choice = s.value; drawPreview(); });
     $("impCancel").onclick = () => $("tpImp").classList.add("hidden");
     $("impGo").onclick = async () => {
@@ -468,13 +470,107 @@
         // 보고서 O: 그 기간 비고의 "보고서 미제출"도 정리
         let fixed = 0;
         for(const t of ins) if(t.report_track && t.report_at && t.start_d){ await tripReportSubmit(t.id); fixed++; }
+        const att = $("impAtt") && $("impAtt").checked;
         $("tpImp").classList.add("hidden");
         const due = rows.filter(r => r.report_track && !r.report_at).length;
-        say("tpMsg", `이전 기록 ${rows.length}줄을 가져왔습니다.` + (rows.some(r => r.report_track) ? ` (보고서 제출 ${fixed}건 · 미제출 ${due}건)` : "") + (upd ? ` · 이미 있던 ${upd}건은 보고서 상태를 갱신했습니다.` : ""), "ok");
+        const msg = `이전 기록 ${rows.length}줄을 가져왔습니다.` + (rows.some(r => r.report_track) ? ` (보고서 제출 ${fixed}건 · 미제출 ${due}건)` : "") + (upd ? ` · 이미 있던 ${upd}건은 보고서 상태를 갱신했습니다.` : "");
+        say("tpMsg", msg, "ok");
+        await loadTrip();
+        if(att){
+          const ids = new Set(ins.map(t => t.id).concat(take.filter(o => o.update).map(o => o.update.id)));
+          await syncToBoard(TRIPS.filter(t => ids.has(t.id)), msg);
+        }
       }catch(e){ say("impMsg", "가져오기 실패: " + e.message, "err"); $("impGo").disabled = false; return; }
-      loadTrip();
     };
   }
+
+  /* ---------- 이전 기록을 출석부에 반영 (같으면 넘어가고, 빈 날은 채우고, 다른 날만 묻기) ---------- */
+  const AD = document.createElement("dialog");
+  AD.className = "kd"; AD.id = "tripAttDlg"; AD.style.width = "min(760px, calc(100% - 32px))";
+  document.body.appendChild(AD);
+  const nsp = v => String(v || "").replace(/\s/g, "");
+  const targetNote = t => `출석인정결석(${NOTE_REASON})` + (t.report_track && !t.report_at ? " 보고서 미제출" : "");
+  async function analyzeTrips(trips){
+    const out = [];
+    for(const t of trips){
+      if(!t.start_d) continue;
+      const days = must(await sb.rpc("school_days_list", {p_class: t.class_id, p_from: t.start_d, p_to: t.end_d})) || [];
+      if(!days.length) continue;
+      const q = tb => sb.from(tb).select("*").eq("class_id", t.class_id).eq("student_no", t.student_no).gte("d", t.start_d).lte("d", t.end_d);
+      const [dm, nd, hm, nm, tm] = await Promise.all([q("day_manual"), q("neis_day"), q("homeroom_marks"), q("neis_marks"), q("teacher_marks")]);
+      const DM = must(dm), ND = must(nd), HM = hm.error ? [] : hm.data, NM = must(nm), TM = must(tm);
+      const tn = targetNote(t);
+      for(const day of days){
+        const slots = ["조회", ...day.periods.map(String), "종례"];
+        const man = DM.find(x => x.d === day.d), nd_ = ND.find(x => x.d === day.d);
+        const kind = (man ? man.kind : nd_ && nd_.kind) || "", note = (man ? man.note : nd_ && nd_.note) || "";
+        const absent = slots.filter(sl => {
+          const te = /^\d+$/.test(sl) ? TM.find(x => x.d === day.d && String(x.period) === sl) : null; if(te) return te.kind === "absent";
+          const h = HM.find(x => x.d === day.d && x.slot === sl); if(h) return h.state === "absent";
+          return NM.some(x => x.d === day.d && x.slot === sl);
+        });
+        const allSlash = absent.length === slots.length;
+        // 같은 체험학습 내용인데 빠진 것("/"·비고·보고서 미제출 문구)만 있으면 자동 보완, 내용이 다르면 묻기
+        const kindOk = !kind || kind === "출석인정결석";
+        const noteOk = !note || nsp(note).replace(/보고서미제출/g, "") === nsp(tn).replace(/보고서미제출/g, "");
+        let st;
+        if(!kind && !note && !absent.length) st = "fill";
+        else if(kind === "출석인정결석" && allSlash && nsp(note) === nsp(tn)) st = "same";
+        else if(kindOk && noteOk) st = "note";
+        else st = "diff";
+        out.push({t, d: day.d, slots, kind, note, absentN: absent.length, st, tn, choice: "keep"});
+      }
+    }
+    return out;
+  }
+  async function applySync(list){
+    const now = new Date().toISOString(), logs = [];
+    for(const x of list){
+      const tag = "trip:" + x.t.id;
+      if(x.st === "fill" || x.st === "note" || (x.st === "diff" && x.choice === "replace")){
+        must(await sb.from("day_manual").upsert({class_id: x.t.class_id, d: x.d, student_no: x.t.student_no, kind: "출석인정결석", note: x.tn, by_email: tag, at: now}));
+        must(await sb.from("homeroom_marks").upsert(x.slots.map(sl => ({class_id: x.t.class_id, d: x.d, student_no: x.t.student_no, slot: sl, state: "absent", by_email: tag, at: now}))));
+        logs.push({class_id: x.t.class_id, d: x.d, student_no: x.t.student_no, period: null, slot: null, action: "hr_kind", teacher: "담임", before: x.kind, after: "출석인정결석", by_email: ME_EMAIL, memo: "교외체험학습 이전 기록 반영"});
+      }
+    }
+    if(logs.length) must(await sb.from("mark_log").insert(logs));
+    return logs.length;
+  }
+  // trips: 반영할 이전 기록들 → 분석해서 묻고 반영
+  async function syncToBoard(trips, doneMsg){
+    let L;
+    try{ L = await analyzeTrips(trips); }catch(e){ say("tpMsg", "출석부 확인 실패: " + e.message, "err"); return; }
+    const cnt = k => L.filter(x => x.st === k).length;
+    const draw = () => {
+      const diff = L.filter(x => x.st === "diff");
+      AD.innerHTML = `<div class="top"><span>이전 기록을 출석부에 반영</span><button type="button" data-adx aria-label="닫기">×</button></div>
+        <div style="padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px">
+          ${doneMsg ? `<div class="mute" style="font-size:13px">${esc(doneMsg)}</div>` : ""}
+          <div style="font-size:14px;line-height:1.8">수업일 <b>${L.length}일</b> 확인 · 빈 날 채움 <b>${cnt("fill")}일</b> · 빠진 "/"·비고 보완 <b>${cnt("note")}일</b> · 이미 같음 <b>${cnt("same")}일</b> (그대로) · 다름 <b style="color:var(--dk3)">${diff.length}일</b>${diff.length ? " (아래에서 선택)" : ""}</div>
+          <div class="mute" style="font-size:12.5px">채우는 내용: 마감 출석인정결석 · 조회~종례 "/" · 비고 "출석인정결석(${NOTE_REASON})" (보고서 미제출이면 뒤에 "보고서 미제출")</div>
+          ${diff.length ? `<div class="row" style="gap:6px"><button class="btn ghost sm" data-adall="keep">모두 기존 유지</button><button class="btn ghost sm" data-adall="replace">모두 체험학습으로 바꾸기</button></div>
+          <div class="tbox" style="max-height:46vh;overflow:auto"><table style="font-size:13px"><thead><tr><th>학생</th><th>날짜</th><th style="text-align:left">지금 출석부</th><th style="text-align:left">선택</th></tr></thead><tbody>` +
+            diff.map(x => { const i = L.indexOf(x); return `<tr><td>${x.t.student_no} ${esc(nameOf(x.t.student_no))}</td><td>${mdw(x.d)}</td>
+              <td class="l">${esc(x.kind || "마감 없음")} · "/" ${x.absentN}/${x.slots.length}칸<br><span class="mute">${esc(x.note || "비고 없음")}</span></td>
+              <td class="l" style="white-space:nowrap"><label style="display:block"><input type="radio" name="ad${i}" value="keep" ${x.choice === "keep" ? "checked" : ""}> 기존 유지</label>
+              <label style="display:block"><input type="radio" name="ad${i}" value="replace" ${x.choice === "replace" ? "checked" : ""}> 체험학습으로 바꾸기</label></td></tr>`; }).join("") + `</tbody></table></div>` : ""}
+          <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-adx>출석부는 그대로 두기</button><button class="btn" data-adgo ${cnt("fill") + cnt("note") + diff.filter(x => x.choice === "replace").length ? "" : "disabled"}>출석부에 반영 (${cnt("fill") + cnt("note") + diff.filter(x => x.choice === "replace").length}일)</button></div>
+        </div>`;
+      AD.querySelectorAll("[data-adx]").forEach(b => b.onclick = () => AD.close());
+      AD.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => { L[+r.name.slice(2)].choice = r.value; draw(); });
+      AD.querySelectorAll("[data-adall]").forEach(b => b.onclick = () => { L.filter(x => x.st === "diff").forEach(x => x.choice = b.dataset.adall); draw(); });
+      AD.querySelector("[data-adgo]").onclick = async () => {
+        AD.querySelector("[data-adgo]").disabled = true;
+        try{ const n = await applySync(L); AD.close(); say("tpMsg", `출석부에 ${n}일을 반영했습니다.`, "ok"); }
+        catch(e){ alert("반영 실패: " + e.message); }
+        loadTrip();
+      };
+    };
+    if(!L.length){ say("tpMsg", (doneMsg ? doneMsg + " " : "") + "반영할 수업일이 없습니다.", "ok"); return; }
+    draw();
+    if(!AD.open) AD.showModal();
+  }
+  window.syncTripsToBoard = syncToBoard;
 
   /* ---------- 엑셀로 내려받기 (이전 기록 붙여넣기와 같은 형식) ---------- */
   let XS = null;
@@ -510,5 +606,10 @@
   };
 
   $("tpAddBtn").onclick = () => openTrip();
+  $("tpSyncAll").onclick = () => {
+    const list = TRIPS.filter(t => t.source === "import" && t.start_d);
+    if(!list.length){ alert("날짜가 있는 이전 기록이 없습니다."); return; }
+    syncToBoard(list);
+  };
   $("bTrip").onclick = () => openTrip({d: (typeof BOARD !== "undefined" && BOARD && BOARD.d) || kstToday()});
 })();

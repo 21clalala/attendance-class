@@ -379,7 +379,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
       <div><h1><span class="clsName"></span> 교외체험학습</h1><span class="sub" id="tpSub"></span></div>
       <div class="row" style="align-items:center">
         <button class="btn ghost sm" id="tpPrev" aria-label="이전 학년도">◀</button><b id="tpAy"></b><button class="btn ghost sm" id="tpNext" aria-label="다음 학년도">▶</button>
-        <button class="btn ghost" id="tpExpBtn">엑셀로 내려받기</button><button class="btn ghost" id="tpImpBtn">이전 기록 붙여넣기</button><button class="btn" id="tpAddBtn">+ 체험학습 등록</button>
+        <button class="btn ghost" id="tpSyncAll" title="이전 기록을 출석부에 반영 (같은 날은 그대로, 다른 날만 선택)">이전 기록 출석부 반영</button><button class="btn ghost" id="tpExpBtn">엑셀로 내려받기</button><button class="btn ghost" id="tpImpBtn">이전 기록 붙여넣기</button><button class="btn" id="tpAddBtn">+ 체험학습 등록</button>
       </div>
     </div>
     <details class="card" style="margin-bottom:14px"><summary style="cursor:pointer;font-weight:600">반일 처리 규정 (담임 안내)</summary>
@@ -570,6 +570,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li>일부 교시: 빠지는 교시를 고르면 수업 3차시 이하(그날 수업을 1차시 이상 들은 경우)는 반일 0.5일, 그 밖은 1일로 셉니다. 마감 종류(지각·조퇴·결과)도 자동으로 정해집니다.</li>
             <li>학생별 사용 일수(학년도 20일 이내)를 보여 주고, 넘으면 경고합니다. 보고서는 회차당 [제출처리] 한 번이면 그 기간 비고의 "보고서 미제출"이 모두 지워집니다.</li>
             <li>이 앱 전에 관리하던 기록은 [이전 기록 붙여넣기]로 엑셀 표를 붙여넣으세요. 같은 기록은 건너뛰고, 겹치는 기록은 고를 수 있습니다. 사용 일수 표에서 학생 이름을 누르면 그 학생의 체험학습 기록(기간·형태·일수·보고서)이 나오고, 날짜를 모르는 이전 사용 일수도 거기서 입력할 수 있습니다.</li>
+            <li>이전 기록은 기본적으로 누적 일수 계산에만 쓰입니다. 붙여넣을 때 [앱 출석부에도 넣기]를 체크하거나, 나중에 [이전 기록 출석부 반영](또는 줄마다 [출석부 반영])을 누르면 출석부에도 넣습니다. 빈 날은 채우고, 이미 같은 날은 그대로 두며, 내용이 다른 날만 보여 주고 "기존 유지 / 체험학습으로 바꾸기"를 고르게 합니다.</li>
             <li>[엑셀로 내려받기]: 그 학년도 체험학습 기록을 학번·이름·시작일·종료일·사용일수·보고서제출여부 엑셀 파일로 받습니다. 이 파일은 [이전 기록 붙여넣기]에 그대로 다시 붙여넣을 수 있는 형식입니다.</li>
             <li>회차를 [삭제]하면 그 회차가 출석부에 넣은 "/"·마감·비고도 함께 지워집니다.</li>
           </ul>
@@ -2081,6 +2082,6 @@ $("addSuper").onclick = async () => {
 
 boot();
 </script>
-<script src="trip.js?v=9"></script>
+<script src="trip.js?v=10"></script>
 </body>
 </html>
