@@ -390,6 +390,11 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <h2>담임 시간 <span class="mute">(학교 공통 · 체크한 교시에는 각 반 담임이 들어감)</span></h2>
     <div class="tbox" style="max-width:520px"><table id="homeTable"></table></div>
     <div class="row super-only" style="margin-top:12px"><button class="btn" id="homeSave">담임 시간 저장</button><span id="homeMsg"></span></div>
+    <h2 id="holHead">휴일 <span class="mute">(학교 공통 · 공휴일·재량휴업일·개교기념일·수능일 등)</span></h2>
+    <p class="mute" style="margin:0 0 8px;font-size:13px">휴일에는 수업이 없는 날로 처리됩니다. 교과선생님 QR 입력·조회가 열리지 않고, 증빙서류 경과일·08:00 알림·체험학습 일수에서 빠집니다. 그날 수업을 하면 [시간표 변경]에서 시정을 따로 저장하세요.</p>
+    <div class="row super-only" style="margin-bottom:8px"><input type="date" id="holD" aria-label="휴일 날짜"><input id="holN" placeholder="이름 (예: 수능일)" style="width:200px" aria-label="휴일 이름"><button class="btn" id="holAdd">추가</button><span id="holMsg"></span></div>
+    <div class="row" style="margin-bottom:8px;gap:6px;align-items:center"><button class="btn ghost sm" id="holPrev" aria-label="이전 학년도">◀</button><b id="holYear"></b><button class="btn ghost sm" id="holNext" aria-label="다음 학년도">▶</button></div>
+    <div class="tbox" style="max-width:520px"><table id="holTable"></table></div>
   </section>
 
   <!-- 날짜별 변경 -->
@@ -515,6 +520,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
             <li>시간표와 수업 교환은 매일 아침 컴시간알리미에서 자동으로 받아 옵니다.</li>
             <li>급한 교체·대강: [시간표 변경] → 날짜 선택 → 그 교시 <b>교체·대강</b> 칸에 선생님 이름 → 저장.</li>
             <li>단축수업: 같은 화면에서 시각을 고치거나 수업 없는 교시의 체크를 끄고 저장. 우리 반에만 적용됩니다.</li>
+            <li><b>휴일</b>(공휴일·재량휴업일·수능일 등): [학교 관리 → 시간표·시정] 아래 [휴일]에서 추가·삭제합니다(전체 관리자). 휴일은 수업 없는 날로 처리되어 QR 입력, 08:00 알림, 경과일 계산에서 빠집니다.</li>
             <li>담임 시간(기본: 금요일 5·6교시)과 조회 시간에는 담임선생님이 체크합니다. 반·관리자에 담임 이름이 있어야 합니다.</li>
           </ul>
         </div>
@@ -861,7 +867,7 @@ async function loadBoard(){
   if(!CUR) return;
   const d = $("bDate").value || kstToday(), c = CUR, today = kstToday();
   try{
-    const [st, nm, nd, tm, sch, lg, hm, dm, rf] = await Promise.all([
+    const [st, nm, nd, tm, sch, lg, hm, dm, rf, hol] = await Promise.all([
       sb.from("students").select("*").eq("class_id", c).order("no"),
       sb.from("neis_marks").select("*").eq("class_id", c).eq("d", d),
       sb.from("neis_day").select("*").eq("class_id", c).eq("d", d),
@@ -870,7 +876,8 @@ async function loadBoard(){
       sb.from("mark_log").select("*").eq("class_id", c).eq("d", d).order("at"),
       sb.from("homeroom_marks").select("*").eq("class_id", c).eq("d", d),
       sb.from("day_manual").select("*").eq("class_id", c).eq("d", d),
-      sb.from("neis_reflect").select("*").eq("class_id", c).eq("d", d)]);
+      sb.from("neis_reflect").select("*").eq("class_id", c).eq("d", d),
+      sb.from("holiday").select("name").eq("d", d)]);
     if(c !== CUR) return;
     const students = must(st), neis = must(nm), nday = must(nd), tmarks = must(tm), schedule = must(sch), logs = must(lg);
     const hmarks = hm.error ? [] : (hm.data || []), dman = dm.error ? [] : (dm.data || []);
@@ -905,7 +912,7 @@ async function loadBoard(){
 
     $("bTitle").textContent = isToday ? "오늘 출석부" : `${fmtDate(d)} 출석부`;
     $("bInfo").textContent = (isToday ? fmtDate(d) + " · " : "") +
-      (!schedule.length ? "수업 없는 날" : cur ? (cur.period === 0 ? `지금 조회 · ${cur.teacher}` : `지금 ${cur.period}교시 · ${cur.teacher || "선생님 미정"} 수업`) : isToday && nowHM < tl[0].start ? "수업 전" : isToday ? "수업 시간 아님" : `${schedule.length}교시`) +
+      (!schedule.length ? ((!hol.error && hol.data && hol.data[0]) ? `휴일 · ${hol.data[0].name}` : "수업 없는 날") : cur ? (cur.period === 0 ? `지금 조회 · ${cur.teacher}` : `지금 ${cur.period}교시 · ${cur.teacher || "선생님 미정"} 수업`) : isToday && nowHM < tl[0].start ? "수업 전" : isToday ? "수업 시간 아님" : `${schedule.length}교시`) +
       ((!rf.error && rf.data && rf.data[0]) ? ` · 나이스 반영 ✓ ${new Date(rf.data[0].at).toLocaleTimeString("ko-KR", {hour:"2-digit", minute:"2-digit"})}` : "");
 
     // 교시별 체크 현황
@@ -1513,7 +1520,7 @@ $("bForm").onclick = () => {
 
 /* ---------- 시간표·시정 ---------- */
 function renderTT(){
-  loadComciWeek();
+  loadComciWeek(); loadHolidays();
   const maxP = Math.max(7, ...BASE.bell.map(b => b.period));
   let h = `<thead><tr><th>교시</th>${[1,2,3,4,5].map(w => `<th>${DOW[w]}</th>`).join("")}</tr></thead><tbody>`;
   for(let p = 1; p <= maxP; p++){
@@ -1538,6 +1545,34 @@ function renderTT(){
     return `<label>${DOW[w]} <select data-wm="${w}" ${dis}>${Array.from({length:maxP + 1}, (_, i) => `<option value="${i}" ${i === v ? "selected" : ""}>${i ? i + "교시" : "수업 없음"}</option>`).join("")}</select></label>`;
   }).join(" ");
 }
+/* 휴일 */
+let HOL_AY = null;   // 학년도(3월 시작)
+const ayOf = d => { const y = +d.slice(0, 4), m = +d.slice(5, 7); return m >= 3 ? y : y - 1; };
+async function loadHolidays(){
+  if(HOL_AY === null) HOL_AY = ayOf(kstToday());
+  const from = `${HOL_AY}-03-01`;
+  $("holYear").textContent = `${HOL_AY}학년도 (${HOL_AY}.3 ~ ${HOL_AY + 1}.2)`;
+  try{
+    const rows = must(await sb.from("holiday").select("*").gte("d", from).lt("d", `${HOL_AY + 1}-03-01`).order("d"));
+    $("holTable").innerHTML = rows.length ? `<thead><tr><th>날짜</th><th style="text-align:left">이름</th><th></th></tr></thead><tbody>` +
+      rows.map(r => `<tr><td>${fmtDate(r.d)}</td><td class="l">${esc(r.name)}</td><td>${SUPER ? `<button class="btn ghost sm" data-holdel="${r.d}">삭제</button>` : ""}</td></tr>`).join("") + "</tbody>"
+      : `<tbody><tr><td class="mute" style="padding:14px">등록된 휴일이 없습니다.</td></tr></tbody>`;
+  }catch(e){ $("holTable").innerHTML = `<tbody><tr><td class="err">불러오기 실패: ${esc(e.message)} (변경 019 SQL을 실행했는지 확인)</td></tr></tbody>`; }
+}
+$("holPrev").onclick = () => { HOL_AY--; loadHolidays(); };
+$("holNext").onclick = () => { HOL_AY++; loadHolidays(); };
+$("holAdd").onclick = async () => {
+  const d = $("holD").value, n = $("holN").value.trim();
+  if(!d || !n){ say("holMsg", "날짜와 이름을 입력하세요.", "err"); return; }
+  try{ must(await sb.from("holiday").upsert({d, name: n})); $("holD").value = ""; $("holN").value = ""; say("holMsg", `${fmtDate(d)} ${n} 추가했습니다.`, "ok"); HOL_AY = ayOf(d); loadHolidays(); }
+  catch(e){ say("holMsg", "저장 실패: " + e.message, "err"); }
+};
+$("holTable").onclick = async e => {
+  const b = e.target.closest("[data-holdel]"); if(!b) return;
+  if(!confirm(`${fmtDate(b.dataset.holdel)} 휴일을 삭제할까요?`)) return;
+  try{ must(await sb.from("holiday").delete().eq("d", b.dataset.holdel)); loadHolidays(); }catch(err){ say("holMsg", "삭제 실패: " + err.message, "err"); }
+};
+
 /* 컴시간 주간표 */
 let CW_OFFSET = 0;
 function mondayOf(dStr, addWeeks){
