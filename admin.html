@@ -1371,16 +1371,16 @@ async function loadDoc(){
   $("docMonth").textContent = `${+ym.slice(0, 4)}년 ${+ym.slice(5)}월`;
   try{
     const [dl, tr] = await Promise.all([sb.rpc("doc_list", {p_class: c, p_from: from, p_to: to}),
-      sb.from("trip").select("*").eq("class_id", c).eq("source", "app").lte("start_d", to).gte("end_d", from)]);
+      sb.from("trip").select("*").eq("class_id", c).lte("start_d", to).gte("end_d", from)]);
     let rows = must(dl);
     if(c !== CUR || ym !== DOC_M) return;
     DOC_ALL = rows;
     // 체험학습 보고서: 같은 회차의 날짜들을 한 줄로
-    const trips = tr.error ? [] : (tr.data || []);
+    const trips = (tr.error ? [] : (tr.data || [])).filter(t => t.start_d && t.end_d);   // 앱 등록 + 이전 기록(날짜 있는 것)
     const grouped = new Map(), out = [];
     for(const r of rows){
       const t = r.doc === "보고서" && trips.find(t => t.student_no === r.student_no && r.d >= t.start_d && r.d <= t.end_d);
-      if(!t){ out.push(r); continue; }
+      if(!t){ out.push(r.doc === "보고서" ? {...r, noTrip: true} : r); continue; }
       const g = grouped.get(t.id);
       if(!g){ const ng = {...r, d2: r.d, trip: t, days: [r]}; grouped.set(t.id, ng); out.push(ng); }
       else { g.days.push(r); if(r.d < g.d) g.d = r.d; if(r.d > g.d2) g.d2 = r.d; g.elapsed = Math.min(g.elapsed, r.elapsed); }
@@ -1407,7 +1407,7 @@ async function loadDoc(){
     $("docTable").closest(".tbox").classList.toggle("hidden", !rows.length);
     $("docTable").innerHTML = !rows.length ? "" :
       `<thead><tr><th>날짜</th><th>번호</th><th style="text-align:left">이름</th><th>서류</th><th style="text-align:left">마감 · 사유</th><th>경과 수업일</th><th>제출</th></tr></thead><tbody>` +
-      rows.map(r => `<tr${r.submitted ? ' style="opacity:.6"' : ""}><td>${r.trip ? `${fmtDate(r.d).slice(5)} ~ ${fmtDate(r.d2).slice(5)}<br><span class="mute" style="font-size:12px">체험학습 ${r.days.length}일</span>` : fmtDate(r.d)}</td><td>${r.student_no}</td><td style="text-align:left">${esc(r.name || "")}</td>` +
+      rows.map(r => `<tr${r.submitted ? ' style="opacity:.6"' : ""}><td>${r.trip ? `${fmtDate(r.d).slice(5)} ~ ${fmtDate(r.d2).slice(5)}<br><span class="mute" style="font-size:12px">체험학습 ${r.days.length}일${r.trip.source === "import" ? " · 이전 기록" : ""}</span>` : fmtDate(r.d) + (r.noTrip ? `<br><span style="font-size:12px;color:var(--dk2)">회차 미등록</span>` : "")}</td><td>${r.student_no}</td><td style="text-align:left">${esc(r.name || "")}</td>` +
         `<td><span class="pill ${DK_CLS[r.doc] || ""}">${esc(r.doc)}</span></td><td style="text-align:left">${esc(docLabel(r.kind, r.note))}</td><td>${r.submitted ? "—" : r.elapsed + "일"}</td>` +
         `<td>${r.trip ? (r.submitted ? `<button class="btn ghost sm" data-tripundo="${r.trip.id}">✓ 제출함 · 취소</button>` : `<button class="btn sm dk3" data-tripdoc="${r.trip.id}">제출 완료</button>`)
                   : r.submitted ? `<button class="btn ghost sm" data-undoc="${r.d}|${r.student_no}" title="${esc(new Date(r.submitted_at).toLocaleString("ko-KR"))}">✓ 제출함 · 취소</button>`
