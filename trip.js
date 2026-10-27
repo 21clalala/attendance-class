@@ -266,9 +266,9 @@
   /* ---------- 이전 기록 붙여넣기 ---------- */
   const IMP = {rows: [], head: [], map: {}, out: []};
   const GUESS = {no: /학번|번호/, name: /이름|성명/, from: /시작/, to: /종료|끝/, range: /기간/, days: /일수|사용/, report: /보고서|제출/};
-  const FIELD = {no: "학번·번호", name: "이름", from: "시작일", to: "종료일", range: "기간(시작~종료 한 칸)", days: "일수", report: "보고서 제출 여부(O/X)"};
+  const FIELD = {no: "학번(또는 번호)", name: "이름", from: "시작일", to: "종료일", days: "사용일수", report: "보고서제출여부(O/X)", range: "기간(시작~종료가 한 칸일 때)"};
   const yesNo = v => { v = String(v || "").replace(/\s/g, ""); if(!v) return null;
-    if(/^(O|o|○|◯|●|Y|y|예|네|제출|완료|제출함|제출완료|ㅇ)$/.test(v)) return true;
+    if(/^(O|o|○|◯|●|Y|y|예|네|제출|완료|제출함|제출완료|ㅇ|0)$/.test(v)) return true;
     if(/^(X|x|×|✕|N|n|아니오|미제출|ㄴ|-)$/.test(v)) return false; return null; };
   $("tpImpBtn").onclick = () => {
     const box = $("tpImp");
@@ -276,7 +276,10 @@
     box.classList.remove("hidden");
     box.innerHTML = `<h2 style="margin-top:0">이전 기록 붙여넣기</h2>
       <p class="mute" style="font-size:14px;margin:0 0 8px">이 앱을 쓰기 전의 체험학습 기록을 누적 일수에 더합니다. 출석부·나이스·보고서 목록에는 넣지 않습니다. 엑셀에서 표를 <b>머리글까지</b> 복사해 아래에 붙여넣으세요(Ctrl+V).</p>
-      <textarea id="impText" style="width:100%;min-height:120px;font:13px/1.5 ui-monospace,monospace;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--head);color:var(--ink);box-sizing:border-box" placeholder="학번&#9;이름&#9;시작일&#9;종료일&#9;사용일수"></textarea>
+      <div class="mute" style="font-size:13px;margin:0 0 4px">예시 (머리글 이름은 조금 달라도 됩니다)</div>
+      <div class="tbox" style="margin-bottom:8px"><table style="font-size:13px"><thead><tr><th>학번</th><th>이름</th><th>시작일</th><th>종료일</th><th>사용일수</th><th>보고서제출여부</th></tr></thead>
+        <tbody><tr><td>30211</td><td>홍길동</td><td>2026년 6월 11일 목요일</td><td>2026년 6월 11일 목요일</td><td>1</td><td>O</td></tr></tbody></table></div>
+      <textarea id="impText" style="width:100%;min-height:120px;font:13px/1.5 ui-monospace,monospace;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--head);color:var(--ink);box-sizing:border-box" placeholder="엑셀에서 복사한 표를 여기에 붙여넣기 (Ctrl+V)"></textarea>
       <div id="impMap" style="margin-top:10px"></div><div id="impPrev" style="margin-top:10px"></div>`;
     $("impText").oninput = () => parsePaste($("impText").value);
   };
@@ -292,7 +295,7 @@
   }
   function drawMap(){
     $("impMap").innerHTML = `<b style="font-size:14px">열 확인</b> <span class="mute" style="font-size:13px">— 머리글로 짐작했습니다. 틀렸으면 바꿔 주세요.</span><div class="row" style="flex-wrap:wrap;gap:12px;margin-top:6px;font-size:13px">` +
-      Object.keys(FIELD).map(k => `<label>${FIELD[k]} → <select data-impmap="${k}"><option value="-1">(없음)</option>${IMP.head.map((h, i) => `<option value="${i}" ${IMP.map[k] === i ? "selected" : ""}>${esc(h || `${i + 1}번째 열`)}</option>`).join("")}</select></label>`).join("") + `</div>`;
+      Object.keys(FIELD).filter(k => k !== "range" || IMP.map.from < 0 || IMP.map.range >= 0).map(k => `<label>${FIELD[k]} → <select data-impmap="${k}"><option value="-1">(없음)</option>${IMP.head.map((h, i) => `<option value="${i}" ${IMP.map[k] === i ? "selected" : ""}>${esc(h || `${i + 1}번째 열`)}</option>`).join("")}</select></label>`).join("") + `</div>`;
     $("impMap").querySelectorAll("[data-impmap]").forEach(s => s.onchange = () => { IMP.map[s.dataset.impmap] = +s.value; buildPreview(); });
   }
   function parseDate(v, ayHint){
@@ -330,6 +333,7 @@
       if(M.range >= 0){ const [a, b] = cell(r, "range").split(/[~∼\-–]/); o.from = parseDate(a, AY); o.to = parseDate(b || a, AY); }
       else { o.from = parseDate(cell(r, "from"), AY); o.to = parseDate(cell(r, "to") || cell(r, "from"), AY); }
       o.report = M.report >= 0 ? yesNo(cell(r, "report")) : null;
+      o.zero = M.report >= 0 && cell(r, "report").trim() === "0";
       const dv = cell(r, "days").match(/\d+(\.\d+)?/);
       o.days = dv ? +dv[0] : null;
       if(o.ok && !o.from && o.days === null){ o.ok = false; o.msg = "날짜·일수를 읽지 못함"; }
@@ -345,13 +349,20 @@
         const prev = TRIPS.filter(t => t.student_no === o.no && t.start_d).concat(seen.filter(x => x.no === o.no).map(x => ({start_d: x.from, end_d: x.to, source: "paste"})));
         const same = prev.find(t => t.start_d === o.from && t.end_d === o.to);
         const part = prev.filter(t => t.start_d <= o.to && t.end_d >= o.from);
-        if(same){ o.ok = false; o.msg = same.source === "paste" ? "표 안에 같은 줄이 또 있음" : "이미 있음"; o.tone = "same"; }
+        if(same && same.source !== "paste" && o.report !== null && (!(same.source === "app" || same.report_track) || !!same.report_at !== o.report)){
+          o.update = same; o.tone = "update";
+          const was = !(same.source === "app" || same.report_track) ? "추적 안 함" : same.report_at ? "제출" : "미제출";
+          o.msg = `이미 있음 · 보고서 상태 갱신 (${was} → ${o.report ? "제출" : "미제출"})`;
+        }
+        else if(same){ o.ok = false; o.msg = same.source === "paste" ? "표 안에 같은 줄이 또 있음" : "이미 있음"; o.tone = "same"; }
         else if(part.length){
           const ov = part.reduce((a, t) => a + weekdays(t.start_d > o.from ? t.start_d : o.from, t.end_d < o.to ? t.end_d : o.to), 0);
           o.overlap = Math.min(ov, o.days); o.tone = "overlap";
           o.msg = `겹침: ${part.map(t => `${md(t.start_d)}~${md(t.end_d)}`).join(", ")}과 ${o.overlap}일`;
         }
       }
+      if(o.ok && o.zero) o.msg = (o.msg ? o.msg + " · " : "") + "보고서 칸의 숫자 0 → O로 봄";
+      if(o.ok && o.zero && o.tone === "ok") o.tone = "warn";
       if(o.ok && o.from) seen.push(o);
       return o;
     });
@@ -359,29 +370,37 @@
   }
   function drawPreview(){
     const L = IMP.out, take = L.filter(o => o.ok && (o.tone !== "overlap" || o.choice === "take"));
-    $("impPrev").innerHTML = `<b style="font-size:14px">미리보기</b> <span class="mute" style="font-size:13px">· ${L.length}줄 중 가져올 ${take.length}줄 · 빨간 줄과 "이미 있음"은 가져오지 않습니다</span>
+    $("impPrev").innerHTML = `<b style="font-size:14px">미리보기</b> <span class="mute" style="font-size:13px">· ${L.length}줄 중 반영할 ${take.length}줄 · 빨간 줄과 "이미 있음"(보고서 상태가 같은 것)은 건너뜁니다</span>
       <div class="tbox" style="margin-top:6px;max-height:360px;overflow:auto"><table><thead><tr><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">기간</th><th>일수</th><th>보고서</th><th style="text-align:left">확인</th></tr></thead><tbody>` +
       L.map((o, i) => `<tr style="${!o.ok && o.tone !== "same" ? "background:var(--red-soft)" : o.tone === "same" ? "color:var(--mute)" : ""}"><td>${o.no ?? "—"}</td><td class="l">${esc(o.name || o.raw.join(" "))}</td>
         <td class="l">${o.from ? (o.from === o.to ? mdw(o.from) : `${mdw(o.from)} ~ ${mdw(o.to)}`) : '<span class="mute">날짜 없음</span>'}</td><td>${o.days ?? "—"}</td><td>${o.report === true ? "제출" : o.report === false ? '<span style="color:var(--dk3)">미제출</span>' : '<span class="mute">—</span>'}</td>
         <td class="l" style="font-size:13px">${!o.ok ? `<span class="${o.tone === "same" ? "mute" : "err"}">${esc(o.msg)}</span>` : o.tone === "overlap"
           ? `<span style="color:var(--dk2)">${esc(o.msg)}</span> <select data-impch="${i}"><option value="skip" ${o.choice === "skip" ? "selected" : ""}>건너뛰기</option><option value="take" ${o.choice === "take" ? "selected" : ""}>가져오기(겹친 ${o.overlap}일 빼고)</option></select>`
           : o.msg ? `<span style="color:var(--dk2)">${esc(o.msg)}</span>` : '<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">OK</span>'}</td></tr>`).join("") +
-      `</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn" id="impGo" ${take.length ? "" : "disabled"}>${take.length}줄 가져오기</button><button class="btn ghost" id="impCancel">닫기</button><span id="impMsg"></span></div>`;
+      `</tbody></table></div><div class="row" style="margin-top:10px"><button class="btn" id="impGo" ${take.length ? "" : "disabled"}>${[take.filter(o => !o.update).length ? `${take.filter(o => !o.update).length}줄 가져오기` : "", take.filter(o => o.update).length ? `${take.filter(o => o.update).length}건 보고서 상태 갱신` : ""].filter(Boolean).join(" · ") || "가져올 줄 없음"}</button><button class="btn ghost" id="impCancel">닫기</button><span id="impMsg"></span></div>`;
     $("impPrev").querySelectorAll("[data-impch]").forEach(s => s.onchange = () => { L[+s.dataset.impch].choice = s.value; drawPreview(); });
     $("impCancel").onclick = () => $("tpImp").classList.add("hidden");
     $("impGo").onclick = async () => {
       $("impGo").disabled = true;
       try{
-        const rows = take.map(o => ({class_id: CUR, student_no: o.no, ay: AY, start_d: o.from, end_d: o.to, half: false, days: Math.max(0, o.days - (o.choice === "take" ? o.overlap || 0 : 0)), source: "import",
+        // 이미 있는 회차: 보고서 상태만 갱신
+        let upd = 0;
+        for(const o of take.filter(o => o.update)){
+          const t = o.update;
+          if(o.report){ must(await sb.from("trip").update({report_track: true}).eq("id", t.id)); await tripReportSubmit(t.id); }
+          else { if(t.report_at) await tripReportUndo(t.id); must(await sb.from("trip").update({report_track: true, report_at: null}).eq("id", t.id)); }
+          upd++;
+        }
+        const rows = take.filter(o => !o.update).map(o => ({class_id: CUR, student_no: o.no, ay: AY, start_d: o.from, end_d: o.to, half: false, days: Math.max(0, o.days - (o.choice === "take" ? o.overlap || 0 : 0)), source: "import",
           memo: o.choice === "take" && o.overlap ? `이전 기록(겹친 ${o.overlap}일 뺌)` : "이전 기록", by_email: ME_EMAIL,
           report_track: o.report !== null, report_at: o.report === true ? new Date().toISOString() : null}));
-        const ins = must(await sb.from("trip").insert(rows).select()) || [];
+        const ins = rows.length ? (must(await sb.from("trip").insert(rows).select()) || []) : [];
         // 보고서 O: 그 기간 비고의 "보고서 미제출"도 정리
         let fixed = 0;
         for(const t of ins) if(t.report_track && t.report_at && t.start_d){ await tripReportSubmit(t.id); fixed++; }
         $("tpImp").classList.add("hidden");
         const due = rows.filter(r => r.report_track && !r.report_at).length;
-        say("tpMsg", `이전 기록 ${rows.length}줄을 가져왔습니다.` + (rows.some(r => r.report_track) ? ` (보고서 제출 ${fixed}건 · 미제출 ${due}건)` : ""), "ok");
+        say("tpMsg", `이전 기록 ${rows.length}줄을 가져왔습니다.` + (rows.some(r => r.report_track) ? ` (보고서 제출 ${fixed}건 · 미제출 ${due}건)` : "") + (upd ? ` · 이미 있던 ${upd}건은 보고서 상태를 갱신했습니다.` : ""), "ok");
       }catch(e){ say("impMsg", "가져오기 실패: " + e.message, "err"); $("impGo").disabled = false; return; }
       loadTrip();
     };
