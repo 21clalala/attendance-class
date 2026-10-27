@@ -291,6 +291,42 @@
     openStudent(+b.dataset.tpprev);
   };
 
+  // 엑셀 화면처럼 그린 안내 그림 (학생 이름은 예시)
+  function excelGuide(){
+    const rows = [
+      ["30201", "김하늘", "2026년 6월 11일 목요일", "2026년 6월 11일 목요일", "1", "O"],
+      ["30207", "박도윤", "2026년 8월 14일 금요일", "2026년 8월 19일 수요일", "3", "O"],
+      ["30212", "이서준", "2026년 9월 28일 월요일", "2026년 10월 2일 금요일", "5", "O"],
+      ["30218", "정하은", "2026년 10월 23일 금요일", "2026년 10월 23일 금요일", "1", "X"],
+      ["30224", "최지우", "2026년 10월 26일 월요일", "2026년 10월 30일 금요일", "5", "X"]];
+    const head = ["학번", "이름", "시작일", "종료일", "사용일수", "보고서제출여부"];
+    const cell = "border:1px solid #d4d4d4;padding:3px 8px;white-space:nowrap;color:#111";
+    const arrow = `<span style="float:right;margin-left:8px;display:inline-block;width:14px;height:14px;border:1px solid #9a9a9a;background:#fff;border-radius:2px;font-size:9px;line-height:13px;text-align:center;color:#444">▼</span>`;
+    return `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 12px">
+      <div style="flex:0 1 auto;min-width:0;max-width:100%;overflow-x:auto">
+        <div class="mute" style="font-size:12px;margin-bottom:4px">엑셀 화면 예시 (이름은 예시입니다)</div>
+        <table role="img" aria-label="엑셀 예시: 학번, 이름, 시작일, 종료일, 사용일수, 보고서제출여부 열을 머리글부터 마지막 줄까지 선택" style="border-collapse:collapse;font:13px 'Malgun Gothic','맑은 고딕',sans-serif;background:#fff;outline:3px solid #2b7a3d;outline-offset:-1px">
+          <tr style="background:#f3f3f3;color:#555;font-size:11px"><td style="${cell};width:22px;color:#777"></td>${["A","B","C","D","E","F"].map(x => `<td style="${cell};text-align:center;color:#555">${x}</td>`).join("")}</tr>
+          <tr><td style="${cell};background:#f3f3f3;color:#777;font-size:11px;text-align:center">1</td>${head.map(h => `<td style="${cell};background:#ffc000;font-weight:700">${h}${arrow}</td>`).join("")}</tr>
+          ${rows.map((r, i) => `<tr style="background:${i % 2 ? "#fff" : "#fff2cc"}"><td style="${cell};background:#f3f3f3;color:#777;font-size:11px;text-align:center">${i + 2}</td>${r.map((v, k) => `<td style="${cell};text-align:${k === 1 ? "left" : k === 5 ? "center" : "right"}">${v}</td>`).join("")}</tr>`).join("")}
+        </table>
+      </div>
+      <ol style="flex:1 1 260px;margin:18px 0 0;padding-left:20px;font-size:14px;line-height:1.85">
+        <li><b>머리글(1행)부터 마지막 줄까지</b> 표 전체를 마우스로 끌어 선택 <span class="mute">(초록 테두리처럼)</span></li>
+        <li><b>Ctrl + C</b> 로 복사</li>
+        <li>아래 칸을 누르고 <b>Ctrl + V</b></li>
+        <li>열이 맞게 잡혔는지, 미리보기를 확인하고 <b>[가져오기]</b></li>
+      </ol>
+    </div>
+    <ul class="mute" style="font-size:12.5px;margin:-4px 0 10px;padding-left:20px;line-height:1.7">
+      <li><b>학번</b>은 5자리(30211 = 3학년 2반 11번). 학번 대신 <b>번호</b> 열이어도 됩니다.</li>
+      <li><b>날짜</b>는 "2026년 6월 11일 목요일", "2026-06-11", "6/11" 모두 읽습니다. 하루짜리는 시작일=종료일.</li>
+      <li><b>사용일수</b>는 휴일을 뺀 실제 사용 일수(반일은 0.5). 표에 적힌 값을 그대로 씁니다.</li>
+      <li><b>보고서제출여부</b>는 O / X. 이 열이 없으면 보고서는 추적하지 않습니다.</li>
+      <li>머리글 이름이 조금 달라도 괜찮습니다. 붙여넣은 뒤 "열 확인"에서 고를 수 있습니다.</li>
+    </ul>`;
+  }
+
   /* ---------- 이전 기록 붙여넣기 ---------- */
   const IMP = {rows: [], head: [], map: {}, out: []};
   const GUESS = {no: /학번|번호/, name: /이름|성명/, from: /시작/, to: /종료|끝/, range: /기간/, days: /일수|사용/, report: /보고서|제출/};
@@ -304,9 +340,7 @@
     box.classList.remove("hidden");
     box.innerHTML = `<h2 style="margin-top:0">이전 기록 붙여넣기</h2>
       <p class="mute" style="font-size:14px;margin:0 0 8px">이 앱을 쓰기 전의 체험학습 기록을 누적 일수에 더합니다. 출석부·나이스·보고서 목록에는 넣지 않습니다. 엑셀에서 표를 <b>머리글까지</b> 복사해 아래에 붙여넣으세요(Ctrl+V).</p>
-      <div class="mute" style="font-size:13px;margin:0 0 4px">예시 (머리글 이름은 조금 달라도 됩니다)</div>
-      <div class="tbox" style="margin-bottom:8px"><table style="font-size:13px"><thead><tr><th>학번</th><th>이름</th><th>시작일</th><th>종료일</th><th>사용일수</th><th>보고서제출여부</th></tr></thead>
-        <tbody><tr><td>30211</td><td>홍길동</td><td>2026년 6월 11일 목요일</td><td>2026년 6월 11일 목요일</td><td>1</td><td>O</td></tr></tbody></table></div>
+      ${excelGuide()}
       <textarea id="impText" style="width:100%;min-height:120px;font:13px/1.5 ui-monospace,monospace;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--head);color:var(--ink);box-sizing:border-box" placeholder="엑셀에서 복사한 표를 여기에 붙여넣기 (Ctrl+V)"></textarea>
       <div id="impMap" style="margin-top:10px"></div><div id="impPrev" style="margin-top:10px"></div>`;
     $("impText").oninput = () => parsePaste($("impText").value);
