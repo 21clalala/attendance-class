@@ -49,7 +49,7 @@
       `<thead><tr><th>번호</th><th style="text-align:left">이름</th><th style="text-align:left">사용 / ${LIMIT}일</th><th>남은</th></tr></thead><tbody>` +
       show.map(s => {
         const left = LIMIT - s.used, pct = Math.min(100, s.used / LIMIT * 100), warn = left <= 2;
-        return `<tr><td>${s.no}</td><td class="l"><button class="lnkb" data-tpprev="${s.no}" title="이전 사용 일수 직접 입력">${esc(s.name)}</button></td>
+        return `<tr><td>${s.no}</td><td class="l"><button class="lnkb" data-tpprev="${s.no}" title="체험학습 기록 보기">${esc(s.name)}</button></td>
           <td class="l"><div style="display:flex;gap:8px;align-items:center"><div style="height:8px;width:110px;border-radius:99px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:${pct}%;background:${warn ? "var(--dk3)" : "var(--ok)"}"></i></div><b>${fmtDays(s.used)}</b></div>
           ${s.prev || s.half ? `<div class="mute" style="font-size:11px">${[s.prev ? (s.used - s.prev > 0 ? `이전 기록 ${fmtDays(s.prev)} + 앱 ${fmtDays(s.used - s.prev)}` : "이전 기록") : "", s.half ? "반일 포함" : ""].filter(Boolean).join(" · ")}</div>` : ""}</td>
           <td>${left < 0 ? `<span class="pill dk3">${fmtDays(-left)}일 초과</span>` : warn ? `<span class="pill dk3">${fmtDays(left)}일 남음</span>` : fmtDays(left)}</td></tr>`;
@@ -67,7 +67,7 @@
         const per = !t.start_d ? `<span class="mute">날짜 없음 (일수만)</span>` : t.start_d === t.end_d ? mdw(t.start_d) : `${mdw(t.start_d)} ~ ${mdw(t.end_d)}`;
         const form = t.source === "import" ? "" : t.half ? `일부 교시 · ${esc((t.slots || []).map(x => /^\d+$/.test(x) ? x + "교시" : x).join("·"))}<br><span class="mute" style="font-size:12px">${esc(t.kind || "")}${Number(t.days) === 0.5 ? " · 반일" : ""}</span>` : "하루 종일";
         const rep = !tracked(t) ? `<span class="pill">이전 기록</span>`
-          : t.report_at ? `<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">✓ 제출함 ${md(new Date(t.report_at).toISOString().slice(0, 10))}</span> <button class="lnkb" data-tpundo="${t.id}">취소</button>`
+          : t.report_at ? `<span class="pill" style="background:var(--accent-soft2);color:var(--ok)">✓ 제출함${t.source === "import" ? "" : " " + md(new Date(t.report_at).toISOString().slice(0, 10))}</span> <button class="lnkb" data-tpundo="${t.id}">취소</button>`
           : `<button class="btn sm dk3" data-tpdoc="${t.id}">제출처리</button> <span class="mute" style="font-size:12px">${t.end_d >= today ? "진행 중" : "미제출"}</span>`;
         const src = t.source === "import" && tracked(t) ? `<br><span class="mute" style="font-size:11px">이전 기록</span>` : "";
         return `<tr style="${!tracked(t) ? "color:var(--mute)" : ""}"><td class="l"><b>${t.student_no}</b> ${esc(nameOf(t.student_no))}</td><td class="l">${per}${t.memo ? `<br><span class="mute" style="font-size:12px">${esc(t.memo)}</span>` : ""}</td>
@@ -248,19 +248,47 @@
     loadTrip();
   };
   // 이전 사용 일수 직접 입력 (날짜 없는 이전 기록 1건)
-  $("tpUse").onclick = async e => {
+  // 학생 이름 → 그 학생의 체험학습 기록 + 이전 사용 일수 입력
+  const SD = document.createElement("dialog");
+  SD.className = "kd"; SD.id = "tripStuDlg"; SD.style.width = "min(640px, calc(100% - 32px))";
+  document.body.appendChild(SD);
+  function openStudent(no){
+    const mine = TRIPS.filter(t => t.student_no === no).sort((a, b) => (a.start_d || "0").localeCompare(b.start_d || "0"));
+    const used = usedOf(no), left = LIMIT - used;
+    const plain = mine.find(t => t.source === "import" && !t.start_d);
+    const tracked = t => t.source === "app" || t.report_track;
+    SD.innerHTML = `<div class="top"><span>${no}번 ${esc(nameOf(no))} · ${AY}학년도 교외체험학습</span><button type="button" data-sdx aria-label="닫기">×</button></div>
+      <div style="padding:14px 18px 18px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:15px">사용 <b>${fmtDays(used)}</b> / ${LIMIT}일 · ${left < 0 ? `<span class="err">${fmtDays(-left)}일 초과</span>` : `남은 <b>${fmtDays(left)}</b>일`}</div>
+        <div class="tbox"><table style="font-size:13px">${mine.filter(t => t.start_d).length ? `<thead><tr><th style="text-align:left">기간</th><th style="text-align:left">형태</th><th>일수</th><th style="text-align:left">보고서</th><th style="text-align:left">구분</th></tr></thead><tbody>` +
+          mine.filter(t => t.start_d).map(t => `<tr><td class="l">${t.start_d === t.end_d ? mdw(t.start_d) : `${mdw(t.start_d)} ~ ${mdw(t.end_d)}`}${t.memo && t.source === "app" ? `<br><span class="mute">${esc(t.memo)}</span>` : ""}</td>
+            <td class="l">${t.source === "import" ? "—" : t.half ? `일부 교시 (${esc((t.slots || []).map(x => /^\d+$/.test(x) ? x + "교시" : x).join("·"))})` : "하루 종일"}</td><td>${fmtDays(t.days)}</td>
+            <td class="l">${!tracked(t) ? '<span class="mute">—</span>' : t.report_at ? (t.source === "import" ? "✓ 제출" : `✓ 제출 ${md(new Date(t.report_at).toISOString().slice(0, 10))}`) : '<span style="color:var(--dk3)">미제출</span>'}</td>
+            <td class="l">${t.source === "import" ? "이전 기록" : "앱 등록"}</td></tr>`).join("") + "</tbody>"
+          : `<tbody><tr><td class="mute" style="padding:12px">날짜가 있는 체험학습 기록이 없습니다.</td></tr></tbody>`}</table></div>
+        <div style="background:var(--head);border-radius:10px;padding:10px 12px;font-size:13px">
+          <b>이 앱을 쓰기 전 사용 일수</b> <span class="mute">(날짜를 모를 때 숫자만 · 위 목록의 이전 기록과 겹치지 않게)</span>
+          <div class="row" style="margin-top:6px;align-items:center"><input type="number" min="0" step="0.5" id="sdPrev" value="${plain ? fmtDays(plain.days) : ""}" placeholder="0" style="width:90px"> 일 <button class="btn sm" data-sdsave>저장</button><span id="sdMsg"></span></div>
+        </div>
+        <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-sdadd>이 학생 체험학습 등록</button><button class="btn" data-sdx>닫기</button></div>
+      </div>`;
+    SD.querySelectorAll("[data-sdx]").forEach(b => b.onclick = () => SD.close());
+    SD.querySelector("[data-sdadd]").onclick = () => { SD.close(); openTrip({no}); };
+    SD.querySelector("[data-sdsave]").onclick = async () => {
+      const n = Number(SD.querySelector("#sdPrev").value || 0);
+      if(!isFinite(n) || n < 0){ say("sdMsg", "0 이상의 숫자로 입력해 주세요.", "err"); return; }
+      try{
+        if(plain && n === 0) must(await sb.from("trip").delete().eq("id", plain.id));
+        else if(plain) must(await sb.from("trip").update({days: n}).eq("id", plain.id));
+        else if(n > 0) must(await sb.from("trip").insert({class_id: CUR, student_no: no, ay: AY, days: n, source: "import", memo: "이전 사용 일수(직접 입력)", by_email: ME_EMAIL}));
+      }catch(err){ say("sdMsg", "저장 실패: " + err.message, "err"); return; }
+      await loadTrip(); openStudent(no);
+    };
+    if(!SD.open) SD.showModal();
+  }
+  $("tpUse").onclick = e => {
     const b = e.target.closest("[data-tpprev]"); if(!b) return;
-    const no = +b.dataset.tpprev, cur = TRIPS.find(t => t.student_no === no && t.source === "import" && !t.start_d);
-    const v = prompt(`${no}번 ${nameOf(no)} — 이 앱을 쓰기 전에 사용한 일수 (날짜 없이 숫자만, ${AY}학년도)`, cur ? fmtDays(cur.days) : "");
-    if(v === null) return;
-    const n = Number(String(v).trim());
-    if(!isFinite(n) || n < 0){ alert("숫자로 입력해 주세요."); return; }
-    try{
-      if(cur && n === 0) must(await sb.from("trip").delete().eq("id", cur.id));
-      else if(cur) must(await sb.from("trip").update({days: n}).eq("id", cur.id));
-      else if(n > 0) must(await sb.from("trip").insert({class_id: CUR, student_no: no, ay: AY, days: n, source: "import", memo: "이전 사용 일수(직접 입력)", by_email: ME_EMAIL}));
-    }catch(err){ say("tpMsg", "저장 실패: " + err.message, "err"); }
-    loadTrip();
+    openStudent(+b.dataset.tpprev);
   };
 
   /* ---------- 이전 기록 붙여넣기 ---------- */
