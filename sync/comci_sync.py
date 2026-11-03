@@ -158,6 +158,9 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
     return int(s["school_code"]), s["school_name"]
 
 
+JS_SRC = ""
+
+
 def deobfuscate(html: str) -> str:
     """컴시간 /st 의 난독화 스크립트(hour-obfuscated)를 풀어 원래 자바스크립트를 돌려줌"""
     import json
@@ -186,7 +189,9 @@ def discover_endpoint() -> str:
         html = resp.content.decode("euc-kr", errors="replace")
     except Exception as e:  # noqa: BLE001
         return f"주소 확인 실패({type(e).__name__}) · 기본값 사용"
-    html = html + "\n" + deobfuscate(html)
+    global JS_SRC
+    JS_SRC = deobfuscate(html)
+    html = html + "\n" + JS_SRC
     m_url = re.search(r"\./(\d+)\?(\d+)l", html)
     m_key = re.search(r"sc_data\(\s*'(\d+)_'", html)
     if not m_url or not m_key:
@@ -226,6 +231,10 @@ def run(sb: SB, today: date) -> str:
     code, school = find_school_code(sb, cfg)
 
     probe = fetch_raw(code, 1)
+    if os.environ.get("COMCI_DEBUG") or not any("481" in str(k) for k in probe):
+        print("응답 키:", {k: (type(v).__name__, (len(v) if hasattr(v, "__len__") else v)) for k, v in probe.items()})
+        for h in sorted(set(re.findall(r".{0,50}자료\d+.{0,50}", JS_SRC)))[:60]:
+            print("  JS:", re.sub(r"\s+", " ", h))
     weeks = parse_ilja_weeks(probe.get("일자자료"))
     r_today = resolve_r_for_date(weeks, today)
     if r_today is None:
