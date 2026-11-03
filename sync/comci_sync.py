@@ -174,6 +174,10 @@ def discover_endpoint() -> str:
         print("컴시간 /st 화면에서 값을 찾지 못함. 관련 부분:")
         for h in hits[:30]:
             print("  ", h)
+        flat = re.sub(r"\s+", " ", html)
+        print(f"  (화면 길이 {len(flat)}자, 상태 {resp.status_code})")
+        for k in range(0, min(len(flat), 8000), 300):
+            print("  |", flat[k:k + 300])
         return "주소 값을 찾지 못함 · 기본값 사용"
     base = f"http://comci.net:4082/{m_url.group(1)}"
     cs.BASE_URL = ct.BASE_URL = base
