@@ -97,12 +97,12 @@ def code_at(data, g: int, c: int, day: int, period: int) -> int:
 def decode_week(raw: dict, day_dates: dict) -> tuple[list, dict]:
     """한 주 원본 JSON → (수업 행 목록, {선생님 번호: (웹 이름, {과목})})"""
     split = raw.get("분리", 100) or 100
-    base = _get_jaryo(raw, "481")
-    chg = _get_jaryo(raw, "147")
-    subjects = _get_jaryo(raw, "492") or []
-    teachers = _get_jaryo(raw, "446") or []
+    base = _get_jaryo(raw, KEYS["base"])
+    chg = _get_jaryo(raw, KEYS["chg"])
+    subjects = _get_jaryo(raw, KEYS["subj"]) or []
+    teachers = _get_jaryo(raw, KEYS["teacher"]) or []
     if not isinstance(base, list) or len(base) < 2:
-        raise RuntimeError("컴시간 응답에 시간표 자료(481)가 없습니다. 구조가 바뀌었을 수 있습니다.")
+        raise RuntimeError(f"컴시간 응답에 시간표 자료({KEYS['base']})가 없습니다. 구조가 바뀌었을 수 있습니다.")
 
     num_grades = to_int(base[0]) or len(base) - 1
     rows, tinfo = [], {}
@@ -159,6 +159,20 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
 
 
 JS_SRC = ""
+# 자료 번호 (컴시간이 바꾸므로 /st 스크립트에서 다시 읽음): 원자료·일일자료(교체)·과목명·성명
+KEYS = {"base": "481", "chg": "147", "subj": "492", "teacher": "446"}
+
+
+def discover_keys(js: str) -> str:
+    pats = {"base": r"원자료\s*=\s*Q자료\(\s*자료\.자료(\d+)",
+            "chg": r"일일자료\s*=\s*Q자료\(\s*자료\.자료(\d+)",
+            "teacher": r"성명\s*=\s*Q성명\(\s*자료\.자료(\d+)",
+            "subj": r"과목명\s*=\s*Q과목명\(\s*자료\.자료(\d+)"}
+    for k, pat in pats.items():
+        m = re.search(pat, js)
+        if m:
+            KEYS[k] = m.group(1)
+    return " · ".join(f"{k}={v}" for k, v in KEYS.items())
 
 
 def deobfuscate(html: str) -> str:
@@ -227,11 +241,11 @@ def run(sb: SB, today: date) -> str:
     cfg = sb.rpc("comci_sync_config") or {}
     if cfg.get("enabled") is False:
         return "연동이 꺼져 있어 건너뜀"
-    print("컴시간", discover_endpoint())
+    print("컴시간", discover_endpoint(), "· 자료", discover_keys(JS_SRC))
     code, school = find_school_code(sb, cfg)
 
     probe = fetch_raw(code, 1)
-    if os.environ.get("COMCI_DEBUG") or not any("481" in str(k) for k in probe):
+    if os.environ.get("COMCI_DEBUG") or not any(KEYS["base"] in str(k) for k in probe):
         print("응답 키:", {k: (type(v).__name__, (len(v) if hasattr(v, "__len__") else v)) for k, v in probe.items()})
         for h in sorted(set(re.findall(r".{0,50}자료\d+.{0,50}", JS_SRC)))[:60]:
             print("  JS:", re.sub(r"\s+", " ", h))
