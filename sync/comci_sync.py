@@ -158,6 +158,28 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
     return int(s["school_code"]), s["school_name"]
 
 
+def discover_endpoint() -> str:
+    """컴시간은 주소 번호(예: 36179)와 키(예: 73629)를 가끔 바꾸므로 /st 화면에서 현재 값을 읽어 라이브러리에 적용"""
+    import comci.school_search as cs
+    import comci.timetable as ct
+    try:
+        resp = requests.get("http://comci.net:4082/st", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+        html = resp.content.decode("euc-kr", errors="replace")
+    except Exception as e:  # noqa: BLE001
+        return f"주소 확인 실패({type(e).__name__}) · 기본값 사용"
+    m_url = re.search(r"\./(\d+)\?(\d+)l", html)
+    m_key = re.search(r"sc_data\(\s*'(\d+)_'", html)
+    if not m_url or not m_key:
+        i = html.find("sc_data")
+        print("컴시간 /st 화면에서 값을 찾지 못함:", re.sub(r"\s+", " ", html[max(0, i - 200): i + 200]) if i >= 0 else html[:400])
+        return "주소 값을 찾지 못함 · 기본값 사용"
+    base = f"http://comci.net:4082/{m_url.group(1)}"
+    cs.BASE_URL = ct.BASE_URL = base
+    cs.SEARCH_PREFIX = m_url.group(2) + "l"
+    ct.TIMETABLE_KEY = m_key.group(1)
+    return f"주소 {m_url.group(1)} · 키 {m_key.group(1)}"
+
+
 def fetch_raw(code, r: int, tries: int = 4):
     """컴시간 서버가 가끔 빈 응답을 주므로 몇 번 다시 시도"""
     import time
@@ -174,6 +196,7 @@ def run(sb: SB, today: date) -> str:
     cfg = sb.rpc("comci_sync_config") or {}
     if cfg.get("enabled") is False:
         return "연동이 꺼져 있어 건너뜀"
+    print("컴시간", discover_endpoint())
     code, school = find_school_code(sb, cfg)
 
     probe = fetch_raw(code, 1)
