@@ -158,13 +158,25 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
     return int(s["school_code"]), s["school_name"]
 
 
+def fetch_raw(code, r: int, tries: int = 4):
+    """컴시간 서버가 가끔 빈 응답을 주므로 몇 번 다시 시도"""
+    import time
+    for i in range(tries):
+        try:
+            return fetch_timetable_raw(code, r)
+        except Exception as e:  # noqa: BLE001
+            if i == tries - 1:
+                raise RuntimeError(f"컴시간 응답 오류(r={r}, {tries}번 시도): {type(e).__name__}: {e}") from e
+            time.sleep(5 * (i + 1))
+
+
 def run(sb: SB, today: date) -> str:
     cfg = sb.rpc("comci_sync_config") or {}
     if cfg.get("enabled") is False:
         return "연동이 꺼져 있어 건너뜀"
     code, school = find_school_code(sb, cfg)
 
-    probe = fetch_timetable_raw(code, 1)
+    probe = fetch_raw(code, 1)
     weeks = parse_ilja_weeks(probe.get("일자자료"))
     r_today = resolve_r_for_date(weeks, today)
     if r_today is None:
@@ -176,7 +188,13 @@ def run(sb: SB, today: date) -> str:
 
     all_rows, all_t, labels, week_labels = [], {}, set(), []
     for r in targets:
-        raw = probe if r == 1 else fetch_timetable_raw(code, r)
+        try:
+            raw = probe if r == 1 else fetch_raw(code, r)
+        except RuntimeError as e:
+            if r == r_today:
+                raise
+            print(f"다음 주 시간표를 받지 못해 이번 주만 저장: {e}")
+            continue
         ctx = extract_timetable_context(raw, r)
         day_dates = ctx.get("day_dates") or {}
         if not day_dates:
