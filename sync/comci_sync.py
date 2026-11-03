@@ -158,6 +158,25 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
     return int(s["school_code"]), s["school_name"]
 
 
+def deobfuscate(html: str) -> str:
+    """컴시간 /st 의 난독화 스크립트(hour-obfuscated)를 풀어 원래 자바스크립트를 돌려줌"""
+    import json
+    out = []
+    for m in re.finditer(r"\}\)\((\[\[.*?\]\])\s*,\s*(\d+)\s*\)", html, re.S):
+        try:
+            arr, k = json.loads(m.group(1)), int(m.group(2))
+        except Exception:  # noqa: BLE001
+            continue
+        src = []
+        for flag, b in arr:
+            if flag:
+                src.append(b)
+                continue
+            src.append("".join(chr(int(b[j:j + 4], 16) ^ ((k + (j // 4) * 13) & 255)) for j in range(0, len(b), 4)))
+        out.append("".join(src))
+    return "\n".join(out)
+
+
 def discover_endpoint() -> str:
     """컴시간은 주소 번호(예: 36179)와 키(예: 73629)를 가끔 바꾸므로 /st 화면에서 현재 값을 읽어 라이브러리에 적용"""
     import comci.school_search as cs
@@ -167,6 +186,7 @@ def discover_endpoint() -> str:
         html = resp.content.decode("euc-kr", errors="replace")
     except Exception as e:  # noqa: BLE001
         return f"주소 확인 실패({type(e).__name__}) · 기본값 사용"
+    html = html + "\n" + deobfuscate(html)
     m_url = re.search(r"\./(\d+)\?(\d+)l", html)
     m_key = re.search(r"sc_data\(\s*'(\d+)_'", html)
     if not m_url or not m_key:
@@ -174,7 +194,7 @@ def discover_endpoint() -> str:
         print("컴시간 /st 화면에서 값을 찾지 못함. 관련 부분:")
         for h in hits[:30]:
             print("  ", h)
-        flat = re.sub(r"\s+", " ", html)
+        flat = re.sub(r"\s+", " ", deobfuscate(html) or html)
         print(f"  (화면 길이 {len(flat)}자, 상태 {resp.status_code})")
         for k in range(0, min(len(flat), 8000), 300):
             print("  |", flat[k:k + 300])
