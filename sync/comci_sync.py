@@ -170,8 +170,10 @@ def discover_endpoint() -> str:
     m_url = re.search(r"\./(\d+)\?(\d+)l", html)
     m_key = re.search(r"sc_data\(\s*'(\d+)_'", html)
     if not m_url or not m_key:
-        i = html.find("sc_data")
-        print("컴시간 /st 화면에서 값을 찾지 못함:", re.sub(r"\s+", " ", html[max(0, i - 200): i + 200]) if i >= 0 else html[:400])
+        hits = sorted(set(re.findall(r".{0,60}(?:\./\d{3,}|'\d{4,}_'|\?\d{4,}l|ajax|\.js).{0,60}", html)))
+        print("컴시간 /st 화면에서 값을 찾지 못함. 관련 부분:")
+        for h in hits[:30]:
+            print("  ", h)
         return "주소 값을 찾지 못함 · 기본값 사용"
     base = f"http://comci.net:4082/{m_url.group(1)}"
     cs.BASE_URL = ct.BASE_URL = base
