@@ -2,6 +2,7 @@
 컴시간알리미 → Supabase 시간표 동기화
 
 GitHub Actions(.github/workflows/comci-sync.yml)가 평일 정해진 시각에 실행합니다.
+컴시간이 접속 확인 토큰·암호화를 쓰므로 실제 브라우저(Playwright)로 학생 시간표 화면을 열어 자료를 읽습니다.
 - 전체 학년·반의 이번 주와 다음 주 시간표(교체 반영)를 comci_slot 에 저장
 - 선생님 번호와 컴시간에 보이는 이름을 comci_teacher 에 저장 (관리자가 입력한 실명은 건드리지 않음)
 - 결과를 comci_config 의 last_run_at / last_ok / last_message 에 기록 (관리자 페이지에서 확인)
@@ -25,7 +26,6 @@ from comci.school_search import search_schools
 from comci.timetable import (
     _get_jaryo,
     extract_timetable_context,
-    fetch_timetable_raw,
     parse_ilja_weeks,
     resolve_r_for_date,
 )
@@ -158,8 +158,7 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
     return int(s["school_code"]), s["school_name"]
 
 
-JS_SRC = ""
-# 자료 번호 (컴시간이 바꾸므로 /st 스크립트에서 다시 읽음): 원자료·일일자료(교체)·과목명·성명
+# 자료 번호 (컴시간이 바꾸므로 화면 스크립트에서 다시 읽음): 원자료·일일자료(교체)·과목명·성명
 KEYS = {"base": "481", "chg": "147", "subj": "492", "teacher": "446"}
 
 
@@ -175,80 +174,78 @@ def discover_keys(js: str) -> str:
     return " · ".join(f"{k}={v}" for k, v in KEYS.items())
 
 
-def deobfuscate(html: str) -> str:
-    """컴시간 /st 의 난독화 스크립트(hour-obfuscated)를 풀어 원래 자바스크립트를 돌려줌"""
-    import json
-    out = []
-    for m in re.finditer(r"\}\)\((\[\[.*?\]\])\s*,\s*(\d+)\s*\)", html, re.S):
+class ComciBrowser:
+    """실제 브라우저(크롬)로 컴시간 학생 시간표 화면을 열고, 화면이 불러온 시간표 자료를 읽음.
+    접속 확인 토큰·쿠키·암호화는 컴시간 화면 스스로 처리한다. 요청 제한을 지키려고 주마다 몇 초씩 쉼."""
+
+    URL = "http://comci.net:4082/st"
+
+    def __init__(self):
+        from playwright.sync_api import sync_playwright
+        self._pw = sync_playwright().start()
+        self._browser = self._pw.chromium.launch()
+        self.page = self._browser.new_page(locale="ko-KR")
+        self.alerts: list[str] = []
+
+        def on_dialog(d):
+            self.alerts.append(d.message)
+            d.dismiss()
+        self.page.on("dialog", on_dialog)
+        self.page.goto(self.URL, wait_until="networkidle", timeout=60000)
+        self.page.wait_for_function("typeof sc_data === 'function' && typeof sc_disp === 'function'", timeout=30000)
+        info = self.page.evaluate("""() => {
+            const m = String(sc_disp).match(/sc_data\\(\\s*'(\\d+_)'/);
+            const f = String(ba_change).match(/append\\((\\S+?)\\(H시간표/);
+            let fn = null; try { fn = f && (0, eval)(f[1]); } catch (e) {}
+            return {prefix: m && m[1], view: f && f[1], src: fn ? String(fn) : ''};
+        }""")
+        if not info.get("prefix"):
+            raise RuntimeError("컴시간 화면 구조가 바뀌었습니다 (sc_data 시작 값을 찾지 못함).")
+        self.prefix = info["prefix"]
+        self.keys = discover_keys(info.get("src") or "")
+
+    def fetch(self, code: int, r: int, tries: int = 3) -> dict:
+        import json
+        import time
+        last = ""
+        for i in range(tries):
+            self.alerts.clear()
+            self.page.evaluate("() => { H시간표 = null; }")
+            self.page.evaluate("([p, sc, r]) => sc_data(p, sc, r, '1')", [self.prefix, int(code), int(r)])
+            try:
+                self.page.wait_for_function("() => typeof H시간표 === 'object' && H시간표 !== null && Object.keys(H시간표).length > 5", timeout=30000)
+                data = json.loads(self.page.evaluate("() => JSON.stringify(H시간표)"))
+                time.sleep(3)
+                return data
+            except Exception as e:  # noqa: BLE001
+                last = f"{type(e).__name__}: {str(e)[:120]} · 화면 안내: {' / '.join(self.alerts) or '없음'}"
+                time.sleep(20 * (i + 1))   # '1분 후 다시' 제한 대비
+        raise RuntimeError(f"컴시간 시간표를 받지 못함(r={r}, {tries}번 시도): {last}")
+
+    def close(self):
         try:
-            arr, k = json.loads(m.group(1)), int(m.group(2))
-        except Exception:  # noqa: BLE001
-            continue
-        src = []
-        for flag, b in arr:
-            if flag:
-                src.append(b)
-                continue
-            src.append("".join(chr(int(b[j:j + 4], 16) ^ ((k + (j // 4) * 13) & 255)) for j in range(0, len(b), 4)))
-        out.append("".join(src))
-    return "\n".join(out)
-
-
-def discover_endpoint() -> str:
-    """컴시간은 주소 번호(예: 36179)와 키(예: 73629)를 가끔 바꾸므로 /st 화면에서 현재 값을 읽어 라이브러리에 적용"""
-    import comci.school_search as cs
-    import comci.timetable as ct
-    try:
-        resp = requests.get("http://comci.net:4082/st", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-        html = resp.content.decode("euc-kr", errors="replace")
-    except Exception as e:  # noqa: BLE001
-        return f"주소 확인 실패({type(e).__name__}) · 기본값 사용"
-    global JS_SRC
-    JS_SRC = deobfuscate(html)
-    html = html + "\n" + JS_SRC
-    m_url = re.search(r"\./(\d+)\?(\d+)l", html)
-    m_key = re.search(r"sc_data\(\s*'(\d+)_'", html)
-    if not m_url or not m_key:
-        hits = sorted(set(re.findall(r".{0,60}(?:\./\d{3,}|'\d{4,}_'|\?\d{4,}l|ajax|\.js).{0,60}", html)))
-        print("컴시간 /st 화면에서 값을 찾지 못함. 관련 부분:")
-        for h in hits[:30]:
-            print("  ", h)
-        flat = re.sub(r"\s+", " ", deobfuscate(html) or html)
-        print(f"  (화면 길이 {len(flat)}자, 상태 {resp.status_code})")
-        for k in range(0, min(len(flat), 8000), 300):
-            print("  |", flat[k:k + 300])
-        return "주소 값을 찾지 못함 · 기본값 사용"
-    base = f"http://comci.net:4082/{m_url.group(1)}"
-    cs.BASE_URL = ct.BASE_URL = base
-    cs.SEARCH_PREFIX = m_url.group(2) + "l"
-    ct.TIMETABLE_KEY = m_key.group(1)
-    return f"주소 {m_url.group(1)} · 키 {m_key.group(1)}"
-
-
-def fetch_raw(code, r: int, tries: int = 4):
-    """컴시간 서버가 가끔 빈 응답을 주므로 몇 번 다시 시도"""
-    import time
-    for i in range(tries):
-        try:
-            return fetch_timetable_raw(code, r)
-        except Exception as e:  # noqa: BLE001
-            if i == tries - 1:
-                raise RuntimeError(f"컴시간 응답 오류(r={r}, {tries}번 시도): {type(e).__name__}: {e}") from e
-            time.sleep(5 * (i + 1))
+            self._browser.close()
+        finally:
+            self._pw.stop()
 
 
 def run(sb: SB, today: date) -> str:
     cfg = sb.rpc("comci_sync_config") or {}
     if cfg.get("enabled") is False:
         return "연동이 꺼져 있어 건너뜀"
-    print("컴시간", discover_endpoint(), "· 자료", discover_keys(JS_SRC))
     code, school = find_school_code(sb, cfg)
+    br = ComciBrowser()
+    try:
+        return _run(sb, today, code, school, br)
+    finally:
+        br.close()
 
-    probe = fetch_raw(code, 1)
+
+def _run(sb: SB, today: date, code: int, school: str, br: "ComciBrowser") -> str:
+    print("컴시간 화면 열기 OK · 시작값", br.prefix, "· 자료", br.keys)
+    probe = br.fetch(code, 1)
     if os.environ.get("COMCI_DEBUG") or not any(KEYS["base"] in str(k) for k in probe):
         print("응답 키:", {k: (type(v).__name__, (len(v) if hasattr(v, "__len__") else v)) for k, v in probe.items()})
-        for h in sorted(set(re.findall(r".{0,50}자료\d+.{0,50}", JS_SRC)))[:60]:
-            print("  JS:", re.sub(r"\s+", " ", h))
     weeks = parse_ilja_weeks(probe.get("일자자료"))
     r_today = resolve_r_for_date(weeks, today)
     if r_today is None:
@@ -261,7 +258,7 @@ def run(sb: SB, today: date) -> str:
     all_rows, all_t, labels, week_labels = [], {}, set(), []
     for r in targets:
         try:
-            raw = probe if r == 1 else fetch_raw(code, r)
+            raw = probe if r == 1 else br.fetch(code, r)
         except RuntimeError as e:
             if r == r_today:
                 raise

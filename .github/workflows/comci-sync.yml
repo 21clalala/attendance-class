@@ -19,7 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install "comci==0.7.0" "requests>=2.31"
+      - run: pip install "comci==0.7.0" "requests>=2.31" "playwright==1.48.0"
+      - run: python -m playwright install --with-deps chromium   # 컴시간 화면을 실제 브라우저로 열기 위해
       - run: python sync/comci_sync.py
         env:
           COMCI_SYNC_TOKEN: ${{ secrets.COMCI_SYNC_TOKEN }}
