@@ -227,8 +227,9 @@
   /* ---------- 보고서 제출 (회차 단위) ---------- */
   async function tripReportSubmit(id){
     const t = (must(await sb.from("trip").select("*").eq("id", id)) || [])[0]; if(!t) return;
-    const rows = must(await sb.from("day_manual").select("*").eq("class_id", t.class_id).eq("student_no", t.student_no).gte("d", t.start_d).lte("d", t.end_d));
-    for(const r of rows) if(/보고서\s*미제출/.test(r.note || "")) await docSubmitDay(t.class_id, r.d, t.student_no, "보고서");
+    // 증빙서류 목록과 같은 기준으로: 나이스 업로드로만 들어온 날, 비고가 "…미제출"뿐인 날도 포함
+    const rows = must(await sb.rpc("doc_list", {p_class: t.class_id, p_from: t.start_d, p_to: t.end_d})) || [];
+    for(const r of rows) if(r.student_no === t.student_no && r.doc === "보고서" && !r.submitted) await docSubmitDay(t.class_id, r.d, t.student_no, "보고서");
     must(await sb.from("trip").update({report_at: new Date().toISOString()}).eq("id", id));
   }
   async function tripReportUndo(id){
