@@ -180,6 +180,25 @@ class ComciBrowser:
 
     URL = "http://comci.net:4082/st"
 
+    # 2026-11 부터 컴시간 응답에서 주 목록 '일자자료' 가 빠지고, 번호 붙은 자료(예: 자료104)에
+    # [[1, 암호문], [2, 암호문], …] 형태로 들어감. 화면의 해독 함수(QnmsbChange)로 풀면 '26-11-09 ~ 26-11-14'.
+    # 자료 번호는 바뀔 수 있으므로 모양으로 찾아 예전 '일자자료' 형태 [[r, '날짜 ~ 날짜'], …] 로 돌려줌.
+    WEEKS_JS = """() => {
+        const H = H시간표, RANGE = /^\\s*\\d{2,4}-\\d{1,2}-\\d{1,2}\\s*~\\s*\\d{2,4}-\\d{1,2}-\\d{1,2}\\s*$/;
+        const dec = s => {
+            if (RANGE.test(s)) return s;
+            try { if (typeof QnmsbChange === 'function') return String(QnmsbChange(s)); } catch (e) {}
+            return '';
+        };
+        for (const v of Object.values(H || {})) {
+            if (!Array.isArray(v) || !v.length) continue;
+            if (!v.every(w => Array.isArray(w) && w.length >= 2 && !isNaN(Number(w[0])) && typeof w[1] === 'string')) continue;
+            const out = v.map(w => [Number(w[0]), dec(w[1])]);
+            if (out.every(w => RANGE.test(w[1]))) return out;
+        }
+        return null;
+    }"""
+
     def __init__(self):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
@@ -215,6 +234,10 @@ class ComciBrowser:
             try:
                 self.page.wait_for_function("() => typeof H시간표 === 'object' && H시간표 !== null && Object.keys(H시간표).length > 5", timeout=30000)
                 data = json.loads(self.page.evaluate("() => JSON.stringify(H시간표)"))
+                if not data.get("일자자료"):
+                    weeks = self.page.evaluate(self.WEEKS_JS)
+                    if weeks:
+                        data["일자자료"] = weeks
                 time.sleep(3)
                 return data
             except Exception as e:  # noqa: BLE001
@@ -255,7 +278,7 @@ def _run(sb: SB, today: date, code: int, school: str, br: "ComciBrowser") -> str
             r_today = 1
     targets = [r_today] + [w["r"] for w in weeks if w["r"] == r_today + 1]
 
-    all_rows, all_t, labels, week_labels = [], {}, set(), []
+    all_rows, all_t, labels, week_labels, skipped = [], {}, set(), [], []
     for r in targets:
         try:
             raw = probe if r == 1 else br.fetch(code, r)
@@ -267,9 +290,11 @@ def _run(sb: SB, today: date, code: int, school: str, br: "ComciBrowser") -> str
         ctx = extract_timetable_context(raw, r)
         day_dates = ctx.get("day_dates") or {}
         if not day_dates:
+            skipped.append(f"r={r} 날짜 없음")
             continue
         rows, tinfo = decode_week(raw, day_dates)
         if not rows:
+            skipped.append(f"r={r} 수업 0칸")
             continue
         # 그 주 날짜의 기존 자료를 새 자료로 교체
         dates = sorted({dd.isoformat() for dd in day_dates.values()})
@@ -283,7 +308,11 @@ def _run(sb: SB, today: date, code: int, school: str, br: "ComciBrowser") -> str
             cur[1] |= subs
 
     if not all_rows:
-        raise RuntimeError("받아 온 수업이 없습니다. 학교 이름과 컴시간 공개 여부를 확인하세요.")
+        if not weeks:
+            raise RuntimeError("컴시간 응답에서 주별 날짜 목록을 찾지 못했습니다. 컴시간 응답 형식이 또 바뀌었을 수 있습니다. "
+                               f"(응답 키: {', '.join(map(str, probe))[:200]})")
+        raise RuntimeError("받아 온 수업이 없습니다. 학교 이름과 컴시간 공개 여부를 확인하세요. "
+                           f"({', '.join(skipped) or '대상 주 없음'})")
 
     teachers = [{"idx": i, "web_name": w, "subjects": ", ".join(sorted(s))[:80]}
                 for i, (w, s) in sorted(all_t.items())]
