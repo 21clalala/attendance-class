@@ -442,8 +442,8 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     <div class="tbox" style="max-width:520px"><table id="homeTable"></table></div>
     <div class="row super-only" style="margin-top:12px"><button class="btn" id="homeSave">담임 시간 저장</button><span id="homeMsg"></span></div>
     <h2 id="holHead">휴일 <span class="mute">(학교 공통 · 공휴일·재량휴업일·개교기념일·수능일 등)</span></h2>
-    <p class="mute" style="margin:0 0 8px;font-size:13px">휴일에는 수업이 없는 날로 처리됩니다. 교과선생님 QR 입력·조회가 열리지 않고, 증빙서류 경과일·08:00 알림·체험학습 일수에서 빠집니다. 그날 수업을 하면 [시간표 변경]에서 시정을 따로 저장하세요.</p>
-    <div class="row super-only" style="margin-bottom:8px"><input type="date" id="holD" aria-label="휴일 날짜"><input id="holN" placeholder="이름 (예: 수능일)" style="width:200px" aria-label="휴일 이름"><button class="btn" id="holAdd">추가</button><span id="holMsg"></span></div>
+    <p class="mute" style="margin:0 0 8px;font-size:13px">휴일에는 수업이 없는 날로 처리됩니다. 교과선생님 QR 입력·조회가 열리지 않고, 증빙서류 경과일·08:00 알림·체험학습 일수에서 빠집니다. 그날 수업을 하면 [시간표 변경]에서 시정을 따로 저장하세요. 학교 자체 체험학습 날처럼 교외체험학습을 쓸 수 없는 날은 <b>체험학습 불가일</b>에 체크하면, 체험학습 등록 기간에 그날이 들어 있을 때 경고가 뜹니다.</p>
+    <div class="row super-only" style="margin-bottom:8px"><input type="date" id="holD" aria-label="휴일 날짜"><input id="holN" placeholder="이름 (예: 수능일)" style="width:200px" aria-label="휴일 이름"><label title="학교 자체 체험학습 날처럼 학교장허가 교외체험학습을 쓸 수 없는 날"><input type="checkbox" id="holNoTrip"> 체험학습 불가일</label><button class="btn" id="holAdd">추가</button><span id="holMsg"></span></div>
     <div class="row" style="margin-bottom:8px;gap:6px;align-items:center"><button class="btn ghost sm" id="holPrev" aria-label="이전 학년도">◀</button><b id="holYear"></b><button class="btn ghost sm" id="holNext" aria-label="다음 학년도">▶</button></div>
     <div class="tbox" style="max-width:520px"><table id="holTable"></table></div>
   </section>
@@ -1668,7 +1668,7 @@ async function loadHolidays(){
   try{
     const rows = must(await sb.from("holiday").select("*").gte("d", from).lt("d", `${HOL_AY + 1}-03-01`).order("d"));
     $("holTable").innerHTML = rows.length ? `<thead><tr><th>날짜</th><th style="text-align:left">이름</th><th></th></tr></thead><tbody>` +
-      rows.map(r => `<tr><td>${fmtDate(r.d)}</td><td class="l">${esc(r.name)}</td><td>${SUPER ? `<button class="btn ghost sm" data-holdel="${r.d}">삭제</button>` : ""}</td></tr>`).join("") + "</tbody>"
+      rows.map(r => `<tr><td>${fmtDate(r.d)}</td><td class="l">${esc(r.name)}${r.no_trip ? ` <span class="pill" style="background:var(--dk3s);color:var(--dk3)">체험학습 불가</span>` : ""}</td><td>${SUPER ? `<button class="btn ghost sm" data-holdel="${r.d}">삭제</button>` : ""}</td></tr>`).join("") + "</tbody>"
       : `<tbody><tr><td class="mute" style="padding:14px">등록된 휴일이 없습니다.</td></tr></tbody>`;
   }catch(e){ $("holTable").innerHTML = `<tbody><tr><td class="err">불러오기 실패: ${esc(e.message)} (변경 019 SQL을 실행했는지 확인)</td></tr></tbody>`; }
 }
@@ -1677,8 +1677,14 @@ $("holNext").onclick = () => { HOL_AY++; loadHolidays(); };
 $("holAdd").onclick = async () => {
   const d = $("holD").value, n = $("holN").value.trim();
   if(!d || !n){ say("holMsg", "날짜와 이름을 입력하세요.", "err"); return; }
-  try{ must(await sb.from("holiday").upsert({d, name: n})); $("holD").value = ""; $("holN").value = ""; say("holMsg", `${fmtDate(d)} ${n} 추가했습니다.`, "ok"); HOL_AY = ayOf(d); loadHolidays(); }
-  catch(e){ say("holMsg", "저장 실패: " + e.message, "err"); }
+  const noTrip = $("holNoTrip").checked;
+  try{
+    let r = await sb.from("holiday").upsert({d, name: n, no_trip: noTrip});
+    if(r.error && !noTrip && /no_trip/.test(r.error.message)) r = await sb.from("holiday").upsert({d, name: n});   // 변경 026 전
+    must(r);
+    $("holD").value = ""; $("holN").value = ""; $("holNoTrip").checked = false;
+    say("holMsg", `${fmtDate(d)} ${n}${noTrip ? " (체험학습 불가일)" : ""} 추가했습니다.`, "ok"); HOL_AY = ayOf(d); loadHolidays();
+  }catch(e){ say("holMsg", "저장 실패: " + e.message + (noTrip && /no_trip/.test(e.message) ? " (변경 026 SQL을 실행했는지 확인)" : ""), "err"); }
 };
 $("holTable").onclick = async e => {
   const b = e.target.closest("[data-holdel]"); if(!b) return;
@@ -2105,6 +2111,6 @@ $("addSuper").onclick = async () => {
 
 boot();
 </script>
-<script src="trip.js?v=11"></script>
+<script src="trip.js?v=12"></script>
 </body>
 </html>

@@ -139,6 +139,11 @@
     if(!from || !to || to < from){ $("tdPrev").innerHTML = `<span class="err">기간을 확인해 주세요.</span>`; $("tdOk").disabled = true; return; }
     try{ TD.days = must(await sb.rpc("school_days_list", {p_class: CUR, p_from: from, p_to: to})) || []; }
     catch(e){ $("tdPrev").innerHTML = `<span class="err">${esc(e.message)}</span>`; $("tdOk").disabled = true; return; }
+    // 체험학습 불가일 (학교 자체 체험학습 등) — 변경 026 전이면 조용히 건너뜀
+    const nt = await sb.from("holiday").select("d, name").eq("no_trip", true).gte("d", from).lte("d", to).order("d");
+    const noTrip = nt.error ? [] : nt.data || [];
+    const ntWarn = noTrip.length ? `<div class="err" style="margin-bottom:6px;padding:8px 10px;border:1px solid currentColor;border-radius:8px">⚠ ${noTrip.map(h => `${mdw(h.d)} ${esc(h.name)}`).join(", ")}은(는) <b>학교장허가 교외체험학습을 쓸 수 없는 날</b>입니다. 신청서의 기간을 확인해 주세요. (이날은 사용 일수에서 빠집니다)</div>` : "";
+    if(ntWarn && isHalf() && !TD.days[0]){ $("tdSlots").innerHTML = ""; $("tdPrev").innerHTML = ntWarn; $("tdOk").disabled = true; return; }
     let days = TD.days.length, extra = "";
     if(isHalf()){
       const day = TD.days[0];
@@ -162,7 +167,7 @@
     const clash = others.filter(t => t.start_d && t.start_d <= to && t.end_d >= from);
     const appClash = clash.filter(t => t.source === "app"), impClash = clash.filter(t => t.source === "import");
     const ayWarn = ayOfD(to) !== ay ? `<br><span class="err">학년도(3월~2월)를 넘는 기간입니다. 학년도별로 나눠 등록해 주세요.</span>` : "";
-    $("tdPrev").innerHTML = (days ? `<b>수업일 ${isHalf() ? 1 : TD.days.length}일</b> · 사용 <b>${fmtDays(days)}일</b> → ${ay}학년도 누적 <b>${fmtDays(total)} / ${LIMIT}일</b> (남은 ${fmtDays(LIMIT - total)}일)` : `<span class="err">이 기간에는 수업일이 없습니다.</span>`) + extra +
+    $("tdPrev").innerHTML = ntWarn + (days ? `<b>수업일 ${isHalf() ? 1 : TD.days.length}일</b> · 사용 <b>${fmtDays(days)}일</b> → ${ay}학년도 누적 <b>${fmtDays(total)} / ${LIMIT}일</b> (남은 ${fmtDays(LIMIT - total)}일)` : `<span class="err">이 기간에는 수업일이 없습니다.</span>`) + extra +
       (!isHalf() && days ? `<br><span class="mute" style="font-size:13px">마감 출석인정결석 · 비고 "출석인정결석(${NOTE_REASON}) 보고서 미제출" 로 ${TD.days.length}일 모두 자동 입력</span>` : "") +
       (total > LIMIT ? `<br><span class="err">연간 ${LIMIT}일을 ${fmtDays(total - LIMIT)}일 넘습니다.</span>` : "") +
       (appClash.length ? `<br><span class="err">이미 등록된 회차(${appClash.map(t => `${md(t.start_d)}~${md(t.end_d)}`).join(", ")})와 날짜가 겹칩니다.</span>` : "") +

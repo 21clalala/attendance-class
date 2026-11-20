@@ -2818,3 +2818,15 @@ begin
   return v_sent;
 end $$;
 revoke execute on function send_doc_alerts() from public, anon, authenticated;
+
+
+-- ===== migrate-026 =====
+-- =====================================================================
+-- 변경 026: 휴일에 "체험학습 불가일" 표시 (예: 학교 자체 체험학습 날)
+--  · holiday.no_trip = true 인 날은 학교장허가 교외체험학습을 쓸 수 없는 날
+--  · 휴일이므로 지금처럼 수업 없는 날로 처리되고 체험학습 일수에서도 빠짐
+--  · 체험학습 등록 창에서 기간에 이 날이 들어 있으면 경고 표시
+--  · 관리: 관리자 페이지 [학교 관리 → 시간표·시정 → 휴일] (전체 관리자)
+-- Supabase → SQL Editor 에 전체 붙여 넣고 Run (한 번만)
+-- =====================================================================
+alter table holiday add column if not exists no_trip boolean not null default false;
