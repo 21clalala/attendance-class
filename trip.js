@@ -79,7 +79,7 @@
         const src = t.source === "import" && tracked(t) ? `<br><span class="mute" style="font-size:11px">이전 기록</span>` : "";
         return `<tr style="${!tracked(t) ? "color:var(--mute)" : ""}"><td class="l"><b>${t.student_no}</b> ${esc(nameOf(t.student_no))}</td><td class="l">${per}${t.memo ? `<br><span class="mute" style="font-size:12px">${esc(t.memo)}</span>` : ""}</td>
           <td class="l">${form}</td><td>${fmtDays(t.days)}</td><td class="l">${rep}${src}</td>
-          <td style="white-space:nowrap">${t.source === "app" ? `<button class="lnkb" data-tpedit="${t.id}">수정</button> ` : t.start_d ? `<button class="lnkb" data-tpsync="${t.id}">출석부 반영</button> ` : ""}<button class="lnkb" data-tpdel="${t.id}">삭제</button></td></tr>`;
+          <td style="white-space:nowrap">${t.source === "app" ? `<button class="lnkb" data-tpedit="${t.id}">수정</button> ` : t.start_d ? `<button class="lnkb" data-tpsync="${t.id}">출석부 반영</button> ` : ""}<button class="lnkb" data-tpdel="${t.id}">삭제</button>${t.source === "app" ? ` <button class="lnkb" data-tpsms="${t.id}" title="학부모 안내 문자 만들기">문자</button>` : ""}</td></tr>`;
       }).join("") + "</tbody>";
   }
 
@@ -246,9 +246,10 @@
   window.tripReportSubmit = tripReportSubmit; window.tripReportUndo = tripReportUndo;
 
   $("tpList").onclick = async e => {
-    const b = e.target.closest("[data-tpdoc],[data-tpundo],[data-tpedit],[data-tpdel],[data-tpsync]"); if(!b) return;
-    const id = +(b.dataset.tpdoc || b.dataset.tpundo || b.dataset.tpedit || b.dataset.tpdel || b.dataset.tpsync);
+    const b = e.target.closest("[data-tpdoc],[data-tpundo],[data-tpedit],[data-tpdel],[data-tpsync],[data-tpsms]"); if(!b) return;
+    const id = +(b.dataset.tpdoc || b.dataset.tpundo || b.dataset.tpedit || b.dataset.tpdel || b.dataset.tpsync || b.dataset.tpsms);
     const t = TRIPS.find(x => x.id === id); if(!t) return;
+    if(b.dataset.tpsms){ openSms(t); return; }
     try{
       if(b.dataset.tpedit){ openTrip({edit: t}); return; }
       if(b.dataset.tpsync){ await syncToBoard([t]); return; }
@@ -262,6 +263,62 @@
     }catch(err){ say("tpMsg", "저장 실패: " + err.message, "err"); }
     loadTrip();
   };
+  /* ---------- 학부모 안내 문자 (복사해서 문자 앱에 붙여 넣기) ---------- */
+  const SURNAME2 = ["남궁", "제갈", "선우", "황보", "독고", "사공", "서문", "동방", "어금", "망절", "소봉", "장곡"];
+  // "김승겸" → "승겸" (괄호 표시·공백 제거, 두 글자 성 처리)
+  function givenName(full){
+    const n = String(full || "").replace(/\(.*?\)/g, "").replace(/\s+/g, "");
+    if(n.length >= 4 && SURNAME2.includes(n.slice(0, 2))) return n.slice(2);
+    return n.length >= 2 ? n.slice(1) : n;
+  }
+  // 마지막 글자에 받침이 있는지 (한글이 아니면 없음으로 봄)
+  function hasBatchim(s){
+    const c = String(s || "").charCodeAt(String(s || "").length - 1) - 0xAC00;
+    return c >= 0 && c <= 11171 && c % 28 !== 0;
+  }
+  const mdK = d => `${+d.slice(5, 7)}월 ${+d.slice(8)}일`;
+  function smsText(t){
+    const nm = givenName(nameOf(t.student_no)), bat = hasBatchim(nm);
+    const call = bat ? nm + "이" : nm, subj = bat ? nm + "이가" : nm + "가";
+    const per = t.half
+      ? `${mdK(t.start_d)} ${(t.slots || []).filter(x => /^\d+$/.test(x)).join("·")}교시(${fmtDays(t.days)}일)`
+      : t.start_d === t.end_d ? `${mdK(t.start_d)} ${fmtDays(t.days)}일간` : `${mdK(t.start_d)}부터 ${mdK(t.end_d)}까지 ${fmtDays(t.days)}일간`;
+    // 금회까지 누적: 같은 학년도에서 이 회차보다 먼저 시작한 회차 + 날짜 없는 이전 기록 + 이 회차
+    const upTo = TRIPS.filter(x => x.student_no === t.student_no && x.ay === t.ay &&
+      (x.id === t.id || !x.start_d || x.start_d < t.start_d || (x.start_d === t.start_d && x.id < t.id)));
+    const total = upTo.reduce((a, x) => a + Number(x.days), 0);
+    return `어머니, ${call} 담임입니다. ${subj} ${per} 학교장허가 교외체험학습을 신청하였으며, 오늘 승인되었습니다.\n` +
+      `해당 기간동안 가정에서 지도부탁드립니다.\n` +
+      `금회까지 누적 사용기간은 연간 ${LIMIT}일 중 총 ${fmtDays(total)}일 입니다.`;
+  }
+  const MD = document.createElement("dialog");
+  MD.className = "kd"; MD.id = "tripSmsDlg"; MD.style.width = "min(520px, calc(100% - 32px))";
+  MD.setAttribute("aria-labelledby", "tsTitle");
+  MD.innerHTML = `<div class="top"><span id="tsTitle">학부모 안내 문자</span><button type="button" id="tsX" aria-label="닫기">×</button></div>
+    <div style="padding:14px 18px 18px;display:flex;flex-direction:column;gap:10px">
+      <span class="mute" style="font-size:13px">내용을 고친 뒤 [복사]를 눌러 문자 앱에 붙여 넣으세요.</span>
+      <textarea id="tsText" rows="7" style="width:100%;box-sizing:border-box;font:inherit;font-size:15px;line-height:1.6;padding:10px 12px;border-radius:10px;resize:vertical" aria-label="문자 내용"></textarea>
+      <div class="row" style="justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap"><span id="tsMsg"></span>
+        <a class="btn ghost hidden" id="tsSms" href="#">문자 앱 열기</a><button type="button" class="btn ghost" id="tsClose">닫기</button><button type="button" class="btn" id="tsCopy">복사</button></div>
+    </div>`;
+  document.body.appendChild(MD);
+  const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  function openSms(t){
+    $("tsText").value = smsText(t);
+    $("tsMsg").textContent = "";
+    $("tsSms").classList.toggle("hidden", !isPhone);
+    MD.showModal();
+    $("tsText").focus();
+  }
+  $("tsX").onclick = $("tsClose").onclick = () => MD.close();
+  $("tsCopy").onclick = async () => {
+    const v = $("tsText").value;
+    try{ await navigator.clipboard.writeText(v); }
+    catch(e){ $("tsText").select(); try{ document.execCommand("copy"); }catch(e2){ say("tsMsg", "복사 실패 — 직접 선택해서 복사하세요.", "err"); return; } }
+    say("tsMsg", "복사했습니다.", "ok");
+  };
+  $("tsSms").onclick = e => { e.preventDefault(); location.href = "sms:?&body=" + encodeURIComponent($("tsText").value); };
+
   // 이전 사용 일수 직접 입력 (날짜 없는 이전 기록 1건)
   // 학생 이름 → 그 학생의 체험학습 기록 + 이전 사용 일수 입력
   const SD = document.createElement("dialog");
