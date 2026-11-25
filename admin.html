@@ -274,6 +274,7 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
           <button data-t="tt" class="hidden" id="ttTab">시간표·시정</button>
           <button data-t="adm" class="hidden" id="admTab">반·관리자</button>
           <button data-t="comci" class="hidden" id="comciTab">컴시간 연동</button>
+          <button data-t="bot" class="hidden" id="botTab">카카오 챗봇</button>
         </div>
       </details>
     </nav>
@@ -664,6 +665,22 @@ details.faq p{margin:8px 0 0;color:var(--mute);font-size:14px}
     </div>
   </section>
 
+  <!-- 카카오 챗봇 안내 자료 (전체 관리자) -->
+  <section data-p="bot" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">카카오 챗봇 안내 자료</h2>
+      <p class="mute" style="margin-top:0">학생이 카카오톡 챗봇에 물으면 AI(Gemini)가 <b>이 글에 있는 내용만</b> 보고 답합니다. 글에 없는 내용은 "담임선생님께 여쭤봐 주세요"라고 답합니다.<br>
+      체험학습 사용 일수는 학번·이름으로 자동 조회되므로 여기에 적지 않아도 됩니다. 저장하면 1분 안에 챗봇에 반영됩니다.<br>
+      <b>학생 개인정보(이름·연락처 등)는 적지 마세요.</b> 이 글은 질문이 올 때마다 Google Gemini로 보내집니다.</p>
+      <textarea id="botDoc" style="width:100%;min-height:420px;line-height:1.6" placeholder="예)&#10;[교외체험학습 신청]&#10;- 체험학습 시작 3일 전까지 신청서를 담임선생님께 제출합니다.&#10;- 신청서에는 기간, 장소, 체험 목적·계획을 적고 보호자 서명을 받습니다.&#10;- 학년도(3월~다음 해 2월) 동안 최대 20일까지 쓸 수 있습니다.&#10;&#10;[보고서]&#10;- 체험학습이 끝나고 7일 이내에 보고서를 제출합니다."></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="botSave">저장</button>
+        <span id="botMsg"></span>
+        <span class="mute" id="botInfo" style="margin-left:auto;font-size:13px"></span>
+      </div>
+    </div>
+  </section>
+
   <!-- 반·관리자 (전체 관리자) -->
   <section data-p="adm" class="hidden">
     <div class="card">
@@ -707,7 +724,7 @@ function say(el, text, cls){ $(el).className = cls || ""; $(el).textContent = te
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} } };
 
 let SUPER = false, CLASSES = [], CUR = null, ME_EMAIL = "";
-const GLOBAL_TABS = ["adm", "comci", "help"];
+const GLOBAL_TABS = ["adm", "comci", "bot", "help"];
 const curClass = () => CLASSES.find(c => c.id === CUR) || null;
 const tabNow = () => (document.querySelector("#tabs button.on") || {}).dataset?.t || "board";
 
@@ -763,6 +780,7 @@ async function boot(){
   $("who").textContent = session.user.email + (SUPER ? " · 전체 관리자" : "");
   $("admTab").classList.toggle("hidden", !SUPER);
   $("comciTab").classList.toggle("hidden", !SUPER);
+  $("botTab").classList.toggle("hidden", !SUPER);
   $("ttTab").classList.toggle("hidden", !SUPER);
   $("schoolMenu").classList.toggle("hidden", !SUPER);
   document.querySelectorAll(".super-only").forEach(el => el.classList.toggle("hidden", !SUPER));
@@ -828,6 +846,7 @@ function showTab(t){
   if(t === "trip" && window.loadTrip) loadTrip();
   if(t === "adm") loadAdm();
   if(t === "comci") loadComci();
+  if(t === "bot") loadBotDoc();
 }
 $("tabs").onclick = e => { const t = e.target.dataset.t; if(t) showTab(t); };
 
@@ -2039,6 +2058,32 @@ $("cSave").onclick = async () => {
     must(await sb.from("comci_config").update(fields).eq("id", 1));
     say("cMsg", "저장했습니다. 다음 동기화 때 반영됩니다.", "ok"); loadComci();
   }catch(e){ say("cMsg", "저장 실패: " + e.message, "err"); }
+};
+
+/* ---------- 카카오 챗봇 안내 자료 (전체 관리자) ---------- */
+let BOT_SAVED = "";
+const botCount = () => `${$("botDoc").value.length.toLocaleString()}자`;
+async function loadBotDoc(){
+  if(!SUPER) return;
+  try{
+    const d = must(await sb.from("chatbot_doc").select("body, updated_at, by_email").eq("id", 1).maybeSingle());
+    if(!d){ say("botMsg", "안내 자료 칸이 없습니다. 변경 029 SQL을 실행했는지 확인하세요.", "err"); return; }
+    if($("botDoc").value === BOT_SAVED) $("botDoc").value = d.body || "";   // 고치던 글은 덮어쓰지 않음
+    BOT_SAVED = d.body || "";
+    $("botInfo").textContent = `${botCount()} · 마지막 저장 ${new Date(d.updated_at).toLocaleString("ko-KR")}${d.by_email ? " · " + d.by_email : ""}`;
+  }catch(e){ say("botMsg", "불러오기 실패: " + e.message + " (변경 029 SQL을 실행했는지 확인)", "err"); }
+}
+$("botDoc").oninput = () => { $("botInfo").textContent = `${botCount()} · 저장 안 됨`; say("botMsg", ""); };
+$("botSave").onclick = async () => {
+  const body = $("botDoc").value.trimEnd();
+  if(body.length > 30000){ say("botMsg", "너무 깁니다. 30,000자 이내로 줄여 주세요.", "err"); return; }
+  $("botSave").disabled = true;
+  try{
+    must(await sb.from("chatbot_doc").upsert({id: 1, body, updated_at: new Date().toISOString(), by_email: ME_EMAIL}));
+    $("botDoc").value = body; BOT_SAVED = body;
+    say("botMsg", "저장했습니다. 1분 안에 챗봇에 반영됩니다.", "ok"); loadBotDoc();
+  }catch(e){ say("botMsg", "저장 실패: " + e.message, "err"); }
+  finally{ $("botSave").disabled = false; }
 };
 
 /* ---------- 반·관리자 (전체 관리자) ---------- */
