@@ -1,17 +1,12 @@
 -- =====================================================================
 -- 변경 027: 카카오톡 챗봇 — 학생이 본인 교외체험학습 사용 일수 조회
---  · students.kakao_code : 학생별 4자리 확인 코드 (담임이 학생에게 나눠 줌)
---      반·번호·이름만으로는 친구가 대신 연결할 수 있어서 코드를 함께 받음
+--  · 학생이 처음 물어보면 챗봇이 학번·이름을 되묻고, 맞으면 연결
 --  · kakao_link : 카카오 사용자 ID ↔ 학생 (처음 한 번 연결하면 다음부터 바로 조회)
 --  · kakao_fail : 연결 실패 기록 (카카오 계정당 하루 5번까지만 시도)
 --  · kakao_link_student() / kakao_trip_status() / kakao_unlink()
 --      Edge Function(kakao-attendance)만 부를 수 있음 (service_role 전용)
 -- Supabase → SQL Editor 에 전체 붙여 넣고 Run (한 번만)
 -- =====================================================================
-
--- 확인 코드: 기존 학생은 이 줄을 실행할 때 학생마다 다른 코드가 생김, 새 학생도 자동 생성
-alter table students add column if not exists kakao_code text
-  default lpad((floor(random() * 10000))::int::text, 4, '0');
 
 create table if not exists kakao_link (
   kakao_user_id text primary key,
@@ -47,9 +42,9 @@ language sql immutable as $$
   select case when extract(month from p_d) >= 3 then extract(year from p_d)::int else extract(year from p_d)::int - 1 end
 $$;
 
--- 연결: 반("3-2"), 번호, 이름, 확인 코드
+-- 연결: 반("3-2"), 번호, 이름
 -- 반환 {ok:true, label, no, name} | {ok:false, reason:'locked'|'mismatch'}
-create or replace function kakao_link_student(p_uid text, p_label text, p_no int, p_name text, p_code text)
+create or replace function kakao_link_student(p_uid text, p_label text, p_no int, p_name text)
 returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
 declare c classes; s students;
@@ -63,8 +58,7 @@ begin
   if c.id is not null then
     select * into s from students
      where class_id = c.id and no = p_no
-       and replace(name, ' ', '') = replace(coalesce(p_name, ''), ' ', '')
-       and kakao_code = trim(coalesce(p_code, ''));
+       and replace(name, ' ', '') = replace(coalesce(p_name, ''), ' ', '');
   end if;
 
   if s.no is null then
@@ -137,7 +131,7 @@ begin
   return found;
 end $$;
 
-revoke execute on function kakao_link_student(text, text, int, text, text), kakao_trip_status(text), kakao_unlink(text)
+revoke execute on function kakao_link_student(text, text, int, text), kakao_trip_status(text), kakao_unlink(text)
   from public, anon, authenticated;
-grant execute on function kakao_link_student(text, text, int, text, text), kakao_trip_status(text), kakao_unlink(text)
+grant execute on function kakao_link_student(text, text, int, text), kakao_trip_status(text), kakao_unlink(text)
   to service_role;

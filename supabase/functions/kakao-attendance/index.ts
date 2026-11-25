@@ -11,10 +11,9 @@ const SERVICE_KEY = Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERV
 const SKILL_SECRET = Deno.env.get("KAKAO_SKILL_SECRET") || "";
 
 const HOW_TO_LINK =
-  "처음 한 번만 본인 확인이 필요해요.\n" +
-  "아래처럼 [반 번호 이름 확인코드]를 보내 주세요.\n\n" +
-  "예) 3-2 15 홍길동 1234\n\n" +
-  "확인코드 4자리는 담임선생님께 받을 수 있어요.";
+  "학번과 이름을 보내 주세요.\n\n" +
+  "예) 30215 홍길동\n\n" +
+  "처음 한 번만 확인하면 다음부터는 바로 알려 드려요.";
 
 const QUICK = [
   { label: "현체 며칠 썼어?", action: "message", messageText: "현체 며칠 썼어?" },
@@ -75,8 +74,16 @@ function summary(s: any): string {
   return lines.join("\n");
 }
 
-// "3-2 15 홍길동 1234" / "3학년 2반 15번 홍길동 1234"
-const LINK_RE = /(\d)\s*(?:-|학년)\s*(\d{1,2})\s*반?\s*(\d{1,2})\s*번?\s*([가-힣]{2,6})\s*(\d{4})/;
+// 학번 + 이름 → [학년, 반, 번호, 이름]
+//   "30215 홍길동" / "홍길동 30215" / "3-2 15 홍길동" / "3학년 2반 15번 홍길동"
+function parseLink(text: string): [number, number, number, string] | null {
+  let m = text.match(/(?<!\d)([1-3])(\d{2})(\d{2})(?!\d)/);
+  if (!m) m = text.match(/(?<!\d)([1-3])\s*(?:-|학년)\s*(\d{1,2})\s*반?\s*(\d{1,2})\s*번?/);
+  if (!m) return null;
+  const name = text.replace(m[0], " ").replace(/[^가-힣]+/g, " ").replace(/(^| )(이름|학번|입니다|이에요|예요)(?= |$)/g, " ")
+    .trim().split(" ").find((w) => w.length >= 2 && w.length <= 6);
+  return name ? [+m[1], +m[2], +m[3], name] : null;
+}
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
@@ -95,18 +102,18 @@ Deno.serve(async (req) => {
       return reply("연결을 해제했어요.\n\n" + HOW_TO_LINK, false);
     }
 
-    const m = text.match(LINK_RE);
+    const m = parseLink(text);
     if (m) {
       const r = await rpc("kakao_link_student", {
-        p_uid: uid, p_label: `${m[1]}-${+m[2]}`, p_no: +m[3], p_name: m[4], p_code: m[5],
+        p_uid: uid, p_label: `${m[0]}-${m[1]}`, p_no: m[2], p_name: m[3],
       });
       if (!r.ok) {
         return reply(r.reason === "locked"
           ? "확인에 여러 번 실패해서 오늘은 더 시도할 수 없어요. 내일 다시 해 주세요."
-          : "반·번호·이름·확인코드가 맞지 않아요. 다시 확인해 주세요.\n\n예) 3-2 15 홍길동 1234", false);
+          : "학번과 이름이 맞지 않아요. 다시 확인해 주세요.\n\n예) 30215 홍길동", false);
       }
       const s = await rpc("kakao_trip_status", { p_uid: uid });
-      return reply(`${r.label} ${r.no}번 ${r.name} 학생으로 연결했어요.\n다음부터는 그냥 물어보면 돼요.\n\n` + summary(s));
+      return reply(`${r.label} ${r.no}번 ${r.name} 학생 기록이에요.\n다음부터는 그냥 물어보면 바로 알려 드려요.\n\n` + summary(s));
     }
 
     const s = await rpc("kakao_trip_status", { p_uid: uid });
