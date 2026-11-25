@@ -24,7 +24,6 @@ import requests
 
 from comci.school_search import search_schools
 from comci.timetable import (
-    _get_jaryo,
     extract_timetable_context,
     parse_ilja_weeks,
     resolve_r_for_date,
@@ -95,14 +94,16 @@ def code_at(data, g: int, c: int, day: int, period: int) -> int:
     return to_int(v)
 
 def decode_week(raw: dict, day_dates: dict) -> tuple[list, dict]:
-    """한 주 원본 JSON → (수업 행 목록, {선생님 번호: (웹 이름, {과목})})"""
-    split = raw.get("분리", 100) or 100
-    base = _get_jaryo(raw, KEYS["base"])
-    chg = _get_jaryo(raw, KEYS["chg"])
-    subjects = _get_jaryo(raw, KEYS["subj"]) or []
-    teachers = _get_jaryo(raw, KEYS["teacher"]) or []
+    """한 주 자료 → (수업 행 목록, {선생님 번호: (웹 이름, {과목})})
+    raw["_norm"] 은 ComciBrowser 가 화면 코드로 찾아 해독해 둔 원자료·교체·선생님·과목 목록."""
+    split = to_int(raw.get("분리")) or 100
+    norm = raw.get("_norm") or {}
+    base = norm.get("base")
+    chg = norm.get("chg")
+    subjects = norm.get("subjects") or []
+    teachers = norm.get("teachers") or []
     if not isinstance(base, list) or len(base) < 2:
-        raise RuntimeError(f"컴시간 응답에 시간표 자료({KEYS['base']})가 없습니다. 구조가 바뀌었을 수 있습니다.")
+        raise RuntimeError(f"컴시간 응답에서 시간표 자료를 찾지 못했습니다 ({norm.get('keys')}). 구조가 바뀌었을 수 있습니다.")
 
     num_grades = to_int(base[0]) or len(base) - 1
     rows, tinfo = [], {}
@@ -158,45 +159,49 @@ def find_school_code(sb: SB, cfg: dict) -> tuple[int, str]:
     return int(s["school_code"]), s["school_name"]
 
 
-# 자료 번호 (컴시간이 바꾸므로 화면 스크립트에서 다시 읽음): 원자료·일일자료(교체)·과목명·성명
-KEYS = {"base": "481", "chg": "147", "subj": "492", "teacher": "446"}
-
-
-def discover_keys(js: str) -> str:
-    pats = {"base": r"원자료\s*=\s*Q자료\(\s*자료\.자료(\d+)",
-            "chg": r"일일자료\s*=\s*Q자료\(\s*자료\.자료(\d+)",
-            "teacher": r"성명\s*=\s*Q성명\(\s*자료\.자료(\d+)",
-            "subj": r"과목명\s*=\s*Q과목명\(\s*자료\.자료(\d+)"}
-    for k, pat in pats.items():
-        m = re.search(pat, js)
-        if m:
-            KEYS[k] = m.group(1)
-    return " · ".join(f"{k}={v}" for k, v in KEYS.items())
-
-
 class ComciBrowser:
     """실제 브라우저(크롬)로 컴시간 학생 시간표 화면을 열고, 화면이 불러온 시간표 자료를 읽음.
     접속 확인 토큰·쿠키·암호화는 컴시간 화면 스스로 처리한다. 요청 제한을 지키려고 주마다 몇 초씩 쉼."""
 
     URL = "http://comci.net:4082/st"
 
-    # 2026-11 부터 컴시간 응답에서 주 목록 '일자자료' 가 빠지고, 번호 붙은 자료(예: 자료104)에
-    # [[1, 암호문], [2, 암호문], …] 형태로 들어감. 화면의 해독 함수(QnmsbChange)로 풀면 '26-11-09 ~ 26-11-14'.
-    # 자료 번호는 바뀔 수 있으므로 모양으로 찾아 예전 '일자자료' 형태 [[r, '날짜 ~ 날짜'], …] 로 돌려줌.
-    WEEKS_JS = """() => {
-        const H = H시간표, RANGE = /^\\s*\\d{2,4}-\\d{1,2}-\\d{1,2}\\s*~\\s*\\d{2,4}-\\d{1,2}-\\d{1,2}\\s*$/;
-        const dec = s => {
-            if (RANGE.test(s)) return s;
-            try { if (typeof QnmsbChange === 'function') return String(QnmsbChange(s)); } catch (e) {}
-            return '';
-        };
-        for (const v of Object.values(H || {})) {
+    # 컴시간은 화면 스크립트의 함수·자료 이름을 수시로 바꾸고(sc_data → XRoaG8, 자료481 → NAB403 …),
+    # 선생님·과목·날짜 글자도 암호화한다. 그래서 이름을 고정하지 않고 화면 코드의 모양으로 찾는다.
+    #  - 불러오기 함수와 시작 값: sc_disp 끝의  XXX('64568_', sc, 1, '0')
+    #  - 시간표 그리는 함수: ba_change 의  append(XXX(H시간표, …
+    #  - 그 함수 안의  원자료=Q자료(자료.KEY…  일일자료=Q자료(자료.KEY…  성명=FN(자료.KEY…  과목명=FN(자료.KEY…
+    #  - 주 목록: [[1, 암호문], [2, 암호문]] 모양의 자료를 해독하면 '26-11-09 ~ 26-11-14'
+    INFO_JS = r"""() => {
+        const sd = String(sc_disp);
+        let m = sd.match(/([\w$]+)\(\s*'(\d+_)'\s*,\s*sc\s*,\s*1\s*,/);
+        if (!m) m = sd.match(/(sc_data)\(\s*'(\d+_)'/);
+        const f = String(ba_change).match(/append\(\s*([\w$]+)\(\s*H시간표/);
+        return {loader: m && m[1], prefix: m && m[2], view: f && f[1]};
+    }"""
+
+    NORM_JS = r"""(view) => {
+        const H = H시간표, src = String(window[view] || '');
+        const RANGE = /^\s*\d{2,4}-\d{1,2}-\d{1,2}\s*~\s*\d{2,4}-\d{1,2}-\d{1,2}\s*$/;
+        const pick = re => { const m = src.match(re); return m ? m.slice(1) : [null, null]; };
+        const [baseKey] = pick(/원자료\s*=\s*Q자료\(\s*자료\.([\w$]+)/);
+        const [chgKey] = pick(/일일자료\s*=\s*Q자료\(\s*자료\.([\w$]+)/);
+        const [tFn, tKey] = pick(/성명\s*=\s*([\w$]+)\(\s*자료\.([\w$]+)/);
+        const [sFn, sKey] = pick(/과목명\s*=\s*([\w$]+)\(\s*자료\.([\w$]+)/);
+        const [dFn] = pick(/요일출력하기\(\s*([\w$]+)\(\s*자료\./);
+        const call = (fn, v) => { try { return typeof window[fn] === 'function' ? String(window[fn](v) ?? '') : String(v ?? ''); } catch (e) { return ''; } };
+        const list = (fn, key) => Array.isArray(H[key]) ? H[key].map((v, i) => i === 0 || typeof v !== 'string' ? v : call(fn, v)) : [];
+        const decFn = dFn || (typeof QnmsbChange === 'function' ? 'QnmsbChange' : null);
+        const dec = s => RANGE.test(s) ? s : (decFn ? call(decFn, s) : '');
+        let weeks = Array.isArray(H.일자자료) && H.일자자료.length ? H.일자자료 : null;
+        if (!weeks) for (const v of Object.values(H)) {
             if (!Array.isArray(v) || !v.length) continue;
             if (!v.every(w => Array.isArray(w) && w.length >= 2 && !isNaN(Number(w[0])) && typeof w[1] === 'string')) continue;
             const out = v.map(w => [Number(w[0]), dec(w[1])]);
-            if (out.every(w => RANGE.test(w[1]))) return out;
+            if (out.every(w => RANGE.test(w[1]))) { weeks = out; break; }
         }
-        return null;
+        return {base: H[baseKey] || null, chg: H[chgKey] || null,
+                teachers: list(tFn, tKey), subjects: list(sFn, sKey), weeks,
+                keys: `base=${baseKey} chg=${chgKey} teacher=${tFn}(${tKey}) subj=${sFn}(${sKey}) date=${decFn}`};
     }"""
 
     def __init__(self):
@@ -211,17 +216,14 @@ class ComciBrowser:
             d.dismiss()
         self.page.on("dialog", on_dialog)
         self.page.goto(self.URL, wait_until="networkidle", timeout=60000)
-        self.page.wait_for_function("typeof sc_data === 'function' && typeof sc_disp === 'function'", timeout=30000)
-        info = self.page.evaluate("""() => {
-            const m = String(sc_disp).match(/sc_data\\(\\s*'(\\d+_)'/);
-            const f = String(ba_change).match(/append\\((\\S+?)\\(H시간표/);
-            let fn = null; try { fn = f && (0, eval)(f[1]); } catch (e) {}
-            return {prefix: m && m[1], view: f && f[1], src: fn ? String(fn) : ''};
-        }""")
-        if not info.get("prefix"):
-            raise RuntimeError("컴시간 화면 구조가 바뀌었습니다 (sc_data 시작 값을 찾지 못함).")
-        self.prefix = info["prefix"]
-        self.keys = discover_keys(info.get("src") or "")
+        self.page.wait_for_function("typeof sc_disp === 'function' && typeof ba_change === 'function'", timeout=30000)
+        info = self.page.evaluate(self.INFO_JS)
+        if not info.get("loader") or not info.get("prefix"):
+            raise RuntimeError("컴시간 화면 구조가 바뀌었습니다 (sc_disp 에서 시간표 불러오기 함수를 찾지 못함).")
+        if not info.get("view"):
+            raise RuntimeError("컴시간 화면 구조가 바뀌었습니다 (ba_change 에서 시간표 그리기 함수를 찾지 못함).")
+        self.loader, self.prefix, self.view = info["loader"], info["prefix"], info["view"]
+        self.keys = f"{self.loader}('{self.prefix}') · 화면 {self.view}"
 
     def fetch(self, code: int, r: int, tries: int = 3) -> dict:
         import json
@@ -230,14 +232,15 @@ class ComciBrowser:
         for i in range(tries):
             self.alerts.clear()
             self.page.evaluate("() => { H시간표 = null; }")
-            self.page.evaluate("([p, sc, r]) => sc_data(p, sc, r, '1')", [self.prefix, int(code), int(r)])
+            self.page.evaluate("([fn, p, sc, r]) => window[fn](p, sc, r, '1')",
+                               [self.loader, self.prefix, int(code), int(r)])
             try:
                 self.page.wait_for_function("() => typeof H시간표 === 'object' && H시간표 !== null && Object.keys(H시간표).length > 5", timeout=30000)
                 data = json.loads(self.page.evaluate("() => JSON.stringify(H시간표)"))
-                if not data.get("일자자료"):
-                    weeks = self.page.evaluate(self.WEEKS_JS)
-                    if weeks:
-                        data["일자자료"] = weeks
+                norm = self.page.evaluate(self.NORM_JS, self.view)
+                data["_norm"] = norm
+                if norm.get("weeks"):
+                    data["일자자료"] = norm["weeks"]
                 time.sleep(3)
                 return data
             except Exception as e:  # noqa: BLE001
@@ -265,10 +268,11 @@ def run(sb: SB, today: date) -> str:
 
 
 def _run(sb: SB, today: date, code: int, school: str, br: "ComciBrowser") -> str:
-    print("컴시간 화면 열기 OK · 시작값", br.prefix, "· 자료", br.keys)
+    print("컴시간 화면 열기 OK ·", br.keys)
     probe = br.fetch(code, 1)
-    if os.environ.get("COMCI_DEBUG") or not any(KEYS["base"] in str(k) for k in probe):
-        print("응답 키:", {k: (type(v).__name__, (len(v) if hasattr(v, "__len__") else v)) for k, v in probe.items()})
+    print("자료 찾기:", (probe.get("_norm") or {}).get("keys"))
+    if os.environ.get("COMCI_DEBUG") or not (probe.get("_norm") or {}).get("base"):
+        print("응답 키:", {k: (type(v).__name__, (len(v) if hasattr(v, "__len__") else v)) for k, v in probe.items() if k != "_norm"})
     weeks = parse_ilja_weeks(probe.get("일자자료"))
     r_today = resolve_r_for_date(weeks, today)
     if r_today is None:
@@ -320,7 +324,7 @@ def _run(sb: SB, today: date, code: int, school: str, br: "ComciBrowser") -> str
 
     changed = sum(1 for x in all_rows if x["changed"])
     odd = f" · 기호 칸 {dict(list(ODD_CELLS.items())[:3])}" if ODD_CELLS else ""
-    return (f"{school or raw.get('학교명', '')} · {len(labels)}개 반 · 수업 {len(all_rows)}칸"
+    return (f"{school} · {len(labels)}개 반 · 수업 {len(all_rows)}칸"
             f"(교체 {changed}) · 선생님 {len(teachers)}명 · {' / '.join(week_labels)}{odd}")
 
 
