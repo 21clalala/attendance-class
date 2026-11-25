@@ -72,10 +72,10 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
 
 ## 카카오톡 챗봇: 교외체험학습 일수 조회 (전체 관리자, 한 번)
 학생이 카카오톡 채널에 "현체 며칠 썼어?"처럼 물으면 이번 학년도 사용 일수·남은 일수·회차별 보고서 제출 여부를 답합니다.
-처음 물으면 챗봇이 학번·이름을 되묻고, 학생이 `30215 홍길동`처럼 보내면 바로 알려 줍니다. 그 카카오 계정은 기억해 두어 다음부터는 묻지 않습니다.
+챗봇이 학번·이름을 되묻고, 학생이 `30215 홍길동`처럼 보내면 그 학생 기록을 알려 줍니다. 카카오 계정을 기억하지 않으므로 물을 때마다 학번·이름을 보냅니다.
 (`3-2 15 홍길동`, `3학년 2반 15번 홍길동` 형식도 됩니다)
 
-1. **SQL**: `supabase/migrate-027.sql` 을 SQL Editor 에서 실행
+1. **SQL**: `supabase/migrate-027.sql`, `migrate-028.sql` 을 순서대로 SQL Editor 에서 실행
 2. **Edge Function**: Supabase → **Edge Functions → Deploy a new function → Via Editor**
    - 함수 이름 `kakao-attendance`, `supabase/functions/kakao-attendance/index.ts` 내용을 그대로 붙여 넣고 **Deploy**
    - 함수 **Details(설정)** 에서 **Verify JWT with legacy secret** (JWT 검증) **끄기** → Save
@@ -84,11 +84,8 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
    `https://dhifkbpsndqcfsmgquuv.supabase.co/functions/v1/kakao-attendance?key=<KAKAO_SKILL_SECRET 값>`
    → 저장 → **폴백 블록**(또는 "현체·체험학습·며칠" 발화를 넣은 블록)의 응답을 **스킬데이터**로, 방금 스킬 선택 → 저장 → **배포**
 
-- 다른 학생으로 잘못 연결됐으면: 학생이 챗봇에 `연결 해제` 를 보내거나, SQL Editor 에서
-  `delete from kakao_link where class_id = (select id from classes where label = '3-2') and student_no = 15;`
-- 학번·이름이 하루 5번 틀린 카카오 계정은 그날 더 시도할 수 없습니다.
+- 학번·이름이 하루 5번 틀린 카카오 계정은 그날 더 조회할 수 없습니다 (맞게 조회한 것은 세지 않음).
 - 학번과 이름만 알면 다른 학생 기록도 볼 수 있다는 점은 감안해 주세요.
-- 명단에서 그 번호의 이름이 바뀌면 연결이 자동으로 풀립니다.
 - 학생이 보는 것은 본인 체험학습의 날짜·일수·보고서 제출 여부뿐입니다 (메모·사유는 보이지 않음).
 
 ## 담임 첫 화면 안내

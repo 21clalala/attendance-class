@@ -4,16 +4,17 @@
 //   · 함수 설정에서 "Verify JWT" 끄기 (카카오는 Supabase 로그인 토큰을 보내지 않음)
 //   · Edge Functions → Secrets 에 KAKAO_SKILL_SECRET (아무 긴 문자열) 추가
 //   · 오픈빌더 스킬 URL: https://<프로젝트>.supabase.co/functions/v1/kakao-attendance?key=<KAKAO_SKILL_SECRET>
-// DB 쪽은 supabase/migrate-027.sql 이 먼저 실행되어 있어야 함.
+// DB 쪽은 supabase/migrate-027.sql, migrate-028.sql 이 먼저 실행되어 있어야 함.
+// 학생이 학번·이름을 보낼 때마다 조회 (카카오 계정을 기억하지 않음)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SKILL_SECRET = Deno.env.get("KAKAO_SKILL_SECRET") || "";
 
-const HOW_TO_LINK =
+const ASK =
+  "교외체험학습 사용 일수를 알려 드릴게요.\n" +
   "학번과 이름을 보내 주세요.\n\n" +
-  "예) 30215 홍길동\n\n" +
-  "처음 한 번만 확인하면 다음부터는 바로 알려 드려요.";
+  "예) 30215 홍길동";
 
 const QUICK = [
   { label: "현체 며칠 썼어?", action: "message", messageText: "현체 며칠 썼어?" },
@@ -96,29 +97,18 @@ Deno.serve(async (req) => {
   const text: string = String(body?.userRequest?.utterance || "").replace(/\s+/g, " ").trim();
   if (!uid) return reply("카카오 사용자 정보를 받지 못했어요.");
 
+  // 학번·이름이 없는 메시지 → 되묻기. 있으면 매번 그 학생 기록을 조회 (카카오 계정은 기억하지 않음)
+  const m = parseLink(text);
+  if (!m) return reply(ASK, false);
+
   try {
-    if (/연결\s*해제|로그아웃/.test(text)) {
-      await rpc("kakao_unlink", { p_uid: uid });
-      return reply("연결을 해제했어요.\n\n" + HOW_TO_LINK, false);
-    }
-
-    const m = parseLink(text);
-    if (m) {
-      const r = await rpc("kakao_link_student", {
-        p_uid: uid, p_label: `${m[0]}-${m[1]}`, p_no: m[2], p_name: m[3],
-      });
-      if (!r.ok) {
-        return reply(r.reason === "locked"
-          ? "확인에 여러 번 실패해서 오늘은 더 시도할 수 없어요. 내일 다시 해 주세요."
-          : "학번과 이름이 맞지 않아요. 다시 확인해 주세요.\n\n예) 30215 홍길동", false);
-      }
-      const s = await rpc("kakao_trip_status", { p_uid: uid });
-      return reply(`${r.label} ${r.no}번 ${r.name} 학생 기록이에요.\n다음부터는 그냥 물어보면 바로 알려 드려요.\n\n` + summary(s));
-    }
-
-    const s = await rpc("kakao_trip_status", { p_uid: uid });
-    if (!s.linked) {
-      return reply((s.reset ? "학생 명단이 바뀌어서 다시 확인이 필요해요.\n\n" : "") + HOW_TO_LINK, false);
+    const s = await rpc("kakao_trip_lookup", {
+      p_uid: uid, p_label: `${m[0]}-${m[1]}`, p_no: m[2], p_name: m[3],
+    });
+    if (!s.ok) {
+      return reply(s.reason === "locked"
+        ? "학번·이름이 여러 번 맞지 않아서 오늘은 더 조회할 수 없어요. 내일 다시 해 주세요."
+        : "학번과 이름이 맞지 않아요. 다시 확인해 주세요.\n\n예) 30215 홍길동", false);
     }
     return reply(summary(s));
   } catch (e) {
