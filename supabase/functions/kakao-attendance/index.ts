@@ -8,7 +8,7 @@
 //   · Edge Functions → Secrets
 //       KAKAO_SKILL_SECRET  아무 긴 문자열 (오픈빌더 스킬 URL 의 ?key= 값과 같게)
 //       GEMINI_API_KEY      Google AI Studio 에서 받은 키 (없으면 3)은 학번만 되물음)
-//       GEMINI_MODEL        (선택) 기본 gemini-2.5-flash
+//       GEMINI_MODEL        (선택) 기본 gemini-3.5-flash-lite
 //   · 오픈빌더 스킬 URL: https://<프로젝트>.supabase.co/functions/v1/kakao-attendance?key=<KAKAO_SKILL_SECRET>
 // DB 쪽은 supabase/migrate-027, 028, 029 .sql 이 먼저 실행되어 있어야 함.
 
@@ -16,7 +16,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SKILL_SECRET = Deno.env.get("KAKAO_SKILL_SECRET") || "";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash-lite";
 const AI_TIMEOUT_MS = 3800; // 카카오는 5초 안에 답해야 함
 
 const ASK =
@@ -141,7 +141,8 @@ async function askGemini(question: string, doc: string): Promise<string> {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: question }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 600, thinkingConfig: { thinkingBudget: 0 } },
+        // Flash-Lite 는 기본이 "생각 최소(minimal)"라 따로 설정하지 않음
+        generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
       }),
     });
     if (!r.ok) throw new Error(`gemini ${r.status}: ${await r.text()}`);

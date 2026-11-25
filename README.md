@@ -83,7 +83,7 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
    - 함수 **Details(설정)** 에서 **Verify JWT with legacy secret** (JWT 검증) **끄기** → Save
    - **Edge Functions → Secrets** 에 `KAKAO_SKILL_SECRET` = 아무 긴 영문·숫자 (비밀번호처럼 남에게 알리지 않기)
    - 같은 곳에 `GEMINI_API_KEY` = Google AI Studio(aistudio.google.com) → **Get API key** 에서 받은 키
-     (없으면 AI 답변 없이 학번만 되묻습니다. 모델을 바꾸려면 `GEMINI_MODEL`, 기본 `gemini-2.5-flash`)
+     (없으면 AI 답변 없이 학번만 되묻습니다. 모델을 바꾸려면 `GEMINI_MODEL`, 기본 `gemini-3.5-flash-lite`)
 3. **카카오 오픈빌더**: **스킬 → 생성** → URL 에
    `https://dhifkbpsndqcfsmgquuv.supabase.co/functions/v1/kakao-attendance?key=<KAKAO_SKILL_SECRET 값>`
    → 저장 → **폴백 블록**의 응답을 **스킬데이터**로, 방금 스킬 선택 → 저장 → **배포**
