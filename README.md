@@ -13,6 +13,7 @@
 | `config.js` | Supabase 주소·공개 키 |
 | `neis-parse.js` | 나이스 일일출석부 엑셀 해석 |
 | `supabase/schema.sql` | 새로 설치할 때 한 번 실행하는 전체 SQL |
+| `supabase/functions/kakao-attendance/index.ts` | 카카오톡 챗봇 (Supabase Edge Function) |
 | `supabase/migrate-00N.sql` | 기존 설치를 업데이트하는 SQL (번호 순서대로 한 번씩) |
 
 GitHub에 올라가는 파일에는 학생 정보가 없습니다. 명단과 출결은 모두 Supabase에만 저장됩니다.
@@ -68,6 +69,31 @@ select count(*) from pg_trigger where tgname = 'attend_invite_only';
 담임 시간(기본: 금요일 5·6교시, 시간표·시정 탭에서 전체 관리자가 변경)에는 각 반 **설정** 탭에 넣은 담임 이름이 들어갑니다.
 동기화가 실패해도 마지막으로 받은 자료와 직접 입력한 시간표로 계속 동작합니다.
 (비공식 연동이라 컴시간 쪽 구조가 바뀌면 멈출 수 있습니다. GitHub는 저장소에 60일간 변경이 없으면 예약 실행을 멈추니, 그때는 Actions 탭에서 다시 켜 주세요.)
+
+## 카카오톡 챗봇: 교외체험학습 일수 조회 (전체 관리자, 한 번)
+학생이 카카오톡 채널에 "현체 며칠 썼어?"처럼 물으면 이번 학년도 사용 일수·남은 일수·회차별 보고서 제출 여부를 답합니다.
+처음 한 번만 `3-2 15 홍길동 1234`(반 번호 이름 확인코드)를 보내 본인 확인을 하고, 그다음부터는 그냥 물어보면 됩니다.
+
+1. **SQL**: `supabase/migrate-027.sql` 을 SQL Editor 에서 실행 (학생마다 4자리 확인코드가 생깁니다)
+2. **Edge Function**: Supabase → **Edge Functions → Deploy a new function → Via Editor**
+   - 함수 이름 `kakao-attendance`, `supabase/functions/kakao-attendance/index.ts` 내용을 그대로 붙여 넣고 **Deploy**
+   - 함수 **Details(설정)** 에서 **Verify JWT with legacy secret** (JWT 검증) **끄기** → Save
+   - **Edge Functions → Secrets** 에 `KAKAO_SKILL_SECRET` = 아무 긴 영문·숫자 (비밀번호처럼 남에게 알리지 않기)
+3. **카카오 오픈빌더**: **스킬 → 생성** → URL 에
+   `https://dhifkbpsndqcfsmgquuv.supabase.co/functions/v1/kakao-attendance?key=<KAKAO_SKILL_SECRET 값>`
+   → 저장 → **폴백 블록**(또는 "현체·체험학습·며칠" 발화를 넣은 블록)의 응답을 **스킬데이터**로, 방금 스킬 선택 → 저장 → **배포**
+4. **확인코드 나눠 주기** (담임): SQL Editor 에서
+   ```sql
+   select c.label, s.no, s.name, s.kakao_code
+     from students s join classes c on c.id = s.class_id
+    where c.label = '3-2' order by s.no;
+   ```
+   학생 한 명의 코드를 바꾸려면: `update students set kakao_code = '5821' where class_id = (select id from classes where label = '3-2') and no = 15;`
+   연결을 끊으려면 (폰 바꿈 등): 학생이 챗봇에 `연결 해제` 를 보내거나, `delete from kakao_link where class_id = (select id from classes where label = '3-2') and student_no = 15;`
+
+- 확인에 하루 5번 실패한 카카오 계정은 그날 더 시도할 수 없습니다.
+- 명단에서 그 번호의 이름이 바뀌면 연결이 자동으로 풀립니다.
+- 학생이 보는 것은 본인 체험학습의 날짜·일수·보고서 제출 여부뿐입니다 (메모·사유는 보이지 않음).
 
 ## 담임 첫 화면 안내
 관리자 페이지 **출석부** 탭 맨 위에 반별 **처음 설정** 체크리스트가 나옵니다 (명단·자습반 표기, ntfy 알림, QR 부착, 시간표, 나이스 업로드).
